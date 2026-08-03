@@ -22,7 +22,7 @@ thesis student's contribution is the accelerator and the measurement, not the pl
 |---|---|
 | **MEDS-S1** | the platform: SoC, generator, BSP, CI, board ports |
 | **S1-Core** | the scalar RV64IMAC CPU inside it |
-| **MEDS-V** | the RVV vector coprocessor ([separate repo](../RVV)), attached over MXIF |
+| **MEDS-V** | the RVV vector coprocessor ([separate repo](https://github.com/meds-uet/MEDS-V)), attached over MXIF |
 | **MXIF** | the tightly-coupled extension interface; a profile of OpenHW CV-X-IF |
 | **MEDS-X-\<name\>** | any accelerator built for MEDS-S1 |
 
