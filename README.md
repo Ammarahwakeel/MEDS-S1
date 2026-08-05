@@ -3,8 +3,10 @@
 **An open RISC-V SoC platform for accelerator research**
 Maktab-e-Digital Systems (MEDS), UET Lahore · Apache-2.0
 
-> **Status: pre-RTL.** This repository currently holds the design documentation set. Nothing here is
-> frozen until the Phase-0 design review. RTL begins in Phase 0 week 6.
+> **Status: Phase 0 — skeleton.** The specification set is complete, the repository structure and CI
+> gate are in place, and the reference module and testbench are green. Most modules are still
+> unwritten; every directory README says who owns what. Nothing is frozen until the Phase-0 design
+> review.
 
 ---
 
@@ -28,6 +30,40 @@ thesis student's contribution is the accelerator and the measurement, not the pl
 
 ---
 
+## Quick start
+
+```bash
+make check-tools     # what you are missing
+make ci              # structure + lint + unit tests  -- should be green
+make help            # everything you can do
+```
+
+If `make ci` is green your environment works. If it is not, and the message does not tell you how to
+fix it, that is our bug — open an issue labelled `type:docs`.
+
+**New contributor?** → [`docs/guidelines/ONBOARDING.md`](docs/guidelines/ONBOARDING.md)
+**Assigned a project?** → [`PROJECTS.md`](PROJECTS.md) maps all 31 catalogue projects to directories
+**About to write code?** → [`rtl/core/s1_alu.sv`](rtl/core/s1_alu.sv) and
+[`verif/unit/tb_s1_alu.sv`](verif/unit/tb_s1_alu.sv) are the house style; copy their shape
+
+## Repository layout
+
+Every directory has a `README.md` saying what belongs there, what does not, how to add something,
+and which catalogue projects land in it. If you are unsure where your code goes, that file answers it.
+
+```
+specs/          normative specification — the spec, interfaces, scope contract
+rtl/            SystemVerilog: core, cache, fabric, peripherals, socket, common, generated
+verif/          unit · cosim · riscof (ACT) · formal · conformance · common
+sw/             bsp · apps · drivers
+gen/            SoC generator: configs/*.yaml -> RTL, linker, headers, DTS
+configs/        s1_nano · s1_base · s1_ai · s1_linux
+boards/         one directory per board, exactly four files each
+extensions/     custom ISA extensions + REGISTRY.md (opcode/CSR/accelerator IDs)
+docs/           guidelines · modules · adr · reviews · figures
+scripts/        build, checks, figure and document generation
+```
+
 ## The document set
 
 Read in this order.
@@ -41,6 +77,9 @@ Read in this order.
 | 5 | [specs/SCOPE_CONTRACT.md](specs/SCOPE_CONTRACT.md) | what v1.0 does and does **not** do, with a reason for every omission. To be signed. | all, then reviewers |
 | 6 | [EXECUTION_PLAN.md](EXECUTION_PLAN.md) | 22 work packages, roles, tiers, phases, staffing, risks | tech lead, contributors |
 | 7 | [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md) | repos, branches, issues, CI, reviews, releases | everyone |
+| 8 | [CONTRIBUTING.md](CONTRIBUTING.md) | the short version of 6 and 7 | everyone |
+| 9 | [docs/guidelines/](docs/guidelines/) | coding standard, verification guide, review checklist, onboarding | everyone writing code |
+| 10 | [docs/adr/](docs/adr/) | why each irreversible decision was made | architects, reviewers |
 
 ### The specification as a PDF
 
@@ -63,7 +102,8 @@ it the mermaid diagrams are skipped and everything else still builds.
 
 - **Faculty / external reviewer** → spec §1–5, then `ADDENDUM.md` Part E (decision log).
 - **A student about to attach an accelerator** → spec §19–23 and §31–34.
-- **A new contributor** → spec §1, `EXECUTION_PLAN.md` §4, `GITHUB_WORKFLOW.md` §14.
+- **A new contributor** → [`docs/guidelines/ONBOARDING.md`](docs/guidelines/ONBOARDING.md), then
+  [`PROJECTS.md`](PROJECTS.md).
 - **Someone implementing core RTL** → `INTERFACES.md`, all of it.
 
 ---
@@ -111,11 +151,14 @@ processor.
 
 ## Contributing
 
-Not yet open — the repository is pre-RTL. From Phase 0 week 6, see `GITHUB_WORKFLOW.md`.
+Open. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md), then
+[`docs/guidelines/ONBOARDING.md`](docs/guidelines/ONBOARDING.md).
 
-The contribution ladder (`EXECUTION_PLAN.md` §4) runs T0 (add a peripheral via `soc.yaml`, write a
-driver or a testbench) → T1 (implement a module against a frozen spec) → T2 (own a module) → T3 (own
-an interface). Everyone starts at T0, including people who think they shouldn't.
+The ladder (`EXECUTION_PLAN.md` §4) runs T0 (add a peripheral via config, write a driver or a
+testbench) → T1 (implement a module against a frozen spec) → T2 (own a module) → T3 (own an
+interface). Everyone starts at T0, including people who think they shouldn't.
+
+**The CI gate is real and it applies to everyone:** `make ci` must be green, and nothing merges red.
 
 ---
 
