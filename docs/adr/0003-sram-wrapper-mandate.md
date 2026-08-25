@@ -1,11 +1,4 @@
-# ADR-0005 — All memory goes through `meds_s1_sram`
-
-| | |
-|---|---|
-| **Status** | Accepted |
-| **Date** | 2026-08-03 |
-| **Deciders** | Umer Shahid, tech lead |
-| **Reversibility** | Medium — mechanical but touches every array |
+# ADR-0003 — All memory goes through `meds_s1_sram`
 
 ## Context
 
@@ -28,15 +21,6 @@ returns old data, stated explicitly rather than left to the technology.
 
 Enforced by `scripts/check_structure.py` rule S7, which flags any packed-array declaration outside
 the wrapper.
-
-## Consequences
-
-**Good:** an ASIC port becomes a matter of writing one `IMPL` variant; every consumer already
-assumes one-cycle latency, so nothing has to be re-timed.
-**Bad:** consumers that would benefit from combinational read (a small bypass FIFO, say) pay a cycle
-or have to justify an exemption.
-**We accept:** slightly more verbose RTL at every array, in exchange for the tape-out option staying
-open at near-zero cost today.
 
 ## Revisit when
 

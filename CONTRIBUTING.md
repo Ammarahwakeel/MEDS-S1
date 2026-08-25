@@ -20,8 +20,7 @@ Then read [`docs/guidelines/ONBOARDING.md`](docs/guidelines/ONBOARDING.md).
 ## 2. Find your work
 
 - Assigned a catalogue project? → [`PROJECTS.md`](PROJECTS.md) maps it to the directories you touch.
-- Just arrived? → the `good-first-issue` label. At least five are open at any time; if there are
-  none, say so — keeping that queue stocked is the tech lead's standing job.
+- Just arrived? → the `good-first-issue` label.
 
 ## 3. The house style
 

@@ -16,7 +16,7 @@ Each layer catches a different bug class. All five are needed; none substitutes 
 | **0** Lint + elaboration | syntax, latches, width mismatches, all four configs build | every push | typos, latches, config rot | M-10 |
 | **1** Unit tests | one module against hand-derived expectations | every PR | logic errors inside a block | M-05, M-06 |
 | **2** Co-simulation | every retired instruction vs Spike over RVFI | every PR | integration and semantic errors | R-05 |
-| **3** ACT / RISCOF | compliance with the ratified ISA vs Sail | every PR | spec misreadings, corner cases | M-11, T-07 |
+| **3** ACT4 | compliance with the ratified ISA vs Sail | every PR | spec misreadings, corner cases | M-11, T-07 |
 | **4** Random + coverage | randomly generated sequences, functional coverage | nightly | hazards, timing, the unimagined | T-07 |
 | — | **Formal** (orthogonal) | riscv-formal, SVA liveness | nightly | unreachable states, deadlock | R-01, T-07 |
 

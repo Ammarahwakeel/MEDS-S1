@@ -1,6 +1,7 @@
 # MEDS-S1 Coding Standard
 
-**Status:** Draft for Phase-0 ratification · **Owner:** tech lead · **Enforced by:** `make check`
+**Status:** Draft for Phase-0 ratification ·
+**Enforced by:** `make check`
 
 > Rules with a **[auto]** tag are checked by `scripts/check_structure.py` or the linter and will
 > fail CI. Rules without it are review items. A rule nobody can check is advice, not a standard —
@@ -17,7 +18,7 @@ make test-unit  # your testbench
 
 ## 1. Why these rules exist
 
-Thirty-one projects run in parallel and contributors rotate every few semesters. The cost of an
+20+ projects run in parallel and contributors rotate every few semesters. The cost of an
 inconsistent repository is not aesthetic — it is that the next person cannot find anything, cannot
 tell finished work from a stub, and cannot review safely. Every rule below buys navigability or
 prevents a specific bug class we know we will otherwise hit.
@@ -60,7 +61,7 @@ module s1_regfile
 
 ### R-C1 — no bare `always` **[auto]**
 
-Use `always_ff`, `always_comb`, `always_latch`. `always @(...)` is banned: it hides intent and lets
+Use `always_ff`,`always_comb`, `always_latch`. The use of `always @(...)` is banned: it hides intent and lets
 a sensitivity-list mistake become a simulation/synthesis mismatch.
 
 ### R-C2 — `logic`, never `reg` or `wire` **[auto]**

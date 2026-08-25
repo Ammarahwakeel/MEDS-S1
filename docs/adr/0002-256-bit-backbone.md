@@ -1,11 +1,4 @@
-# ADR-0004 — 256-bit AXI4 memory backbone
-
-| | |
-|---|---|
-| **Status** | Accepted |
-| **Date** | 2026-08-03 |
-| **Deciders** | Umer Shahid |
-| **Reversibility** | Hard — it is baked into the crossbar, cache line size and DDR bridge |
+# ADR-0002 — 256-bit AXI4 memory backbone
 
 ## Context
 
@@ -33,14 +26,6 @@ accelerator exists.
 - **64 B cache line**, so a refill is two beats
 - A **bandwidth budget table** (SPEC §18.3) that every accelerator declares against before it is
   accepted — exceeding it is a design-review item, not a merge
-
-## Consequences
-
-**Good:** 3.2 GB/s per master port covers every declared consumer except MEDS-V at its largest
-configuration; the budget table makes contention a design conversation rather than a mystery.
-**Bad:** a 256-bit crossbar costs meaningfully more LUTs than a 64-bit one on a Kintex-7.
-**We accept:** MEDS-V at VLEN=512 with 4 lanes exceeds one master port. This is recorded now rather
-than discovered later; it routes direct to the DDR path in Phase 5.
 
 ## Revisit when
 

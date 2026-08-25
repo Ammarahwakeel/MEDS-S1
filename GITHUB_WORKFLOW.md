@@ -7,7 +7,6 @@ rotating team of part-time contributors produce a coherent platform.**
 |---|---|
 | **Version** | 0.1 — DRAFT |
 | **Date** | 2026-08-03 |
-| **Owner** | Tech lead (infra owner for CI) |
 | **Companions** | `EXECUTION_PLAN.md`, `specs/MEDS-S1-SPECIFICATION.md` |
 
 ---
