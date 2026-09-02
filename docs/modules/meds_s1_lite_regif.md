@@ -3,18 +3,10 @@
 | | |
 |---|---|
 | **Status** | SKELETON — ports frozen, the implementation is T-05 work |
-| **Owner** | _(shared — both students, at G1)_ |
-| **Backup** | _(each other)_ |
 | **Project** | T-05, consumed by M-01 · M-02 · M-03 · R-07 |
 | **Spec** | INTERFACES.md §3 (I4), SPEC §24, ADR-0005 |
 | **Source** | `rtl/peripherals/meds_s1_lite_regif.sv` |
 | **Testbench** | `verif/unit/tb_meds_s1_lite_regif.sv` — **you write this** |
-
-> **This page is the specification you are implementing.** Unlike the CLINT and PLIC pages, the
-> contract here is not yours to decide — four other projects will code against it, so it is written
-> out in full below. Read it before you touch the RTL. What is missing is only the
-> _Behaviour_, _Verification status_ and _Known limitations_ sections, which you fill in from what
-> you actually built.
 
 ## Purpose
 
@@ -66,38 +58,11 @@ author needs to know whether back-to-back accesses cost one cycle or three.)_
 | `ADDR_W` | 16 | 3 … `LITE_AW` | window size in address bits; 64 KiB → 16, 4 MiB → 22. Comes from the region's `size` in `configs/*.yaml` |
 | `REG_DW` | 32 | 32 or 64 | register-file width. Must be `LITE_DW` or `LITE_DW/2`; fail at elaboration otherwise |
 
-## Exceptions and errors
-
-| Condition | Response |
-|---|---|
-| `err_i` asserted for the decoded offset | `SLVERR` |
-| Write strobes span both 32-bit lanes when `REG_DW = 32` | `SLVERR`, and **no** register is written |
-| Anything else | `OKAY` |
-
-## Behaviour
-
-_(G1.)_ Describe the channel capture, the read/write arbitration and why it cannot starve either
-side, and how the byte lane is selected. A state diagram only if it earns its place.
 
 ## Verification status
-
-_(G1.)_
 
 | Layer | Status | Where |
 |---|---|---|
 | Lint | clean (skeleton) | `make lint` |
 | Unit test | — | `verif/unit/tb_meds_s1_lite_regif.sv` |
 | Mutation | — | run it at the G1 review; see the testbench header |
-
-## Known limitations
-
-_(G1. One is already known and is here as the example of what this section is for:)_
-
-- **An 8-byte read of a 32-bit register file cannot be rejected.** AXI4-Lite carries no size on the
-  read channel, so the adapter can only return the register in its own lane and zero in the other.
-  Only the PMA `widths` list forbids the access (INTERFACES.md rule P3), and that check lives in the
-  LSU. Writes *are* caught, because the strobes reveal the width.
-
-## Open questions
-
-_(G1.)_

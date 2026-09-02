@@ -3,17 +3,11 @@
 | | |
 |---|---|
 | **Status** | SKELETON — ports frozen, the implementation is T-05 work |
-| **Owner** | _(Student A — record your GitHub handle at G0)_ |
-| **Backup** | _(Student B)_ |
 | **Project** | T-05 (WP9) |
 | **Spec** | SPEC §24, INTERFACES.md §6 (I7), ADR-0005 |
 | **Source** | `rtl/peripherals/meds_s1_clint.sv` |
 | **Testbench** | `verif/unit/tb_meds_s1_clint.sv` — **you write this** |
 
-> **This page is a starting point, not a finished contract.** The shape is given so you can see what
-> is expected; everything marked _(G0)_ or _(G5)_ is yours. A page written the night before the PR
-> documents what got built rather than what was intended, which is the wrong artefact — R-D3 exists
-> for that reason, and the page ships in the same PR as the logic.
 
 ## Purpose
 
@@ -69,10 +63,6 @@ _(Complete at G5.)_ Cover at minimum: what happens when software writes `mtimecm
 already asserted; whether `mtime` continues counting during a bus access to it; and — the question
 you will be asked first — whether `mtip` is `>=` or `==`, and what breaks with the other one.
 
-## Exceptions and errors
-
-Unmapped offset inside the window → `SLVERR`, raised by `meds_s1_lite_regif` from `err_i`.
-
 ## Verification status
 
 _(Complete at G5. The G2 exit criteria are the minimum list.)_
@@ -81,15 +71,3 @@ _(Complete at G5. The G2 exit criteria are the minimum list.)_
 |---|---|---|
 | Lint | clean (skeleton) | `make lint` |
 | Unit test | — | `verif/unit/tb_meds_s1_clint.sv` |
-
-## Known limitations
-
-- Single-hart. _(G5: record what a second hart would cost — it is more than a parameter, because the
-  `msip` registers are 4 bytes apart and would share a 64-bit bus word.)_
-- _(G5: record the `s1_linux` question — whether anything in the software stack still expects a
-  32-bit CLINT access path.)_
-
-## Open questions
-
-- `rtc_hz` is not yet in `boards/*/board.yaml`. Until it is, the tick divider has no single source of
-  truth and C code will hard-code a frequency. Raise it at G4.

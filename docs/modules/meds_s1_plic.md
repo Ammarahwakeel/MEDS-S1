@@ -55,16 +55,8 @@ accelerator sockets · `32+` expansion. IDs come from `soc.yaml` and are never h
 | `N_TARGETS` | 1 | ≥ 1 | one per hart-privilege context |
 | `PRIO_W` | 3 | ≥ 1 | priority levels are `1 … 2^PRIO_W − 1`; 0 is "never" |
 
-## Behaviour
-
-_(Complete at G5.)_ The claim/complete race is the thing this section exists for. Cross-reference
-`docs/reviews/t05-claim-complete-race.md`, and state here what the hardware guarantees rather than
-restating the specification.
 
 ## Verification status
-
-_(Complete at G5. The G3 exit criteria are the minimum list — in particular the threshold boundary:
-a source whose priority **equals** the threshold must not fire.)_
 
 | Layer | Status | Where |
 |---|---|---|
