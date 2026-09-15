@@ -194,10 +194,7 @@ header verbatim and edit the fields.
 - **`Modified By`** gets one new line per contributor who substantively changes the file after
   that — append, don't overwrite the ones already there, so the header reads as a log. A typo fix
   or a rebase doesn't count; a behavioural or interface change does.
-- This is now the single source of truth for who wrote and last touched a file — it replaces the
-  `Owner`/`Backup` fields that used to live in `docs/modules/*.md` (see `docs/modules/TEMPLATE.md`).
-  The **Definition of done** item "Author(s) recorded in the file header" (`PROJECTS.md`) is
-  satisfied by this header, not by a separate table row.
+- This is now the single source of truth for who wrote and last touched a file.
 
 ---
 
