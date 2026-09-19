@@ -89,6 +89,13 @@ package s1_pkg;
     AMO_MIN, AMO_MAX, AMO_MINU, AMO_MAXU, AMO_NONE
   } amo_op_e;
 
+  // Zicbom/Zicboz cache-block operation, from imm[11:0] under OP_MISC_MEM
+  // funct3==010. CBO_ZERO is Zicboz; the other
+  // three are Zicbom. Address is rs1 alone, same as AMO -- no offset.
+  typedef enum logic [2:0] {
+    CBO_INVAL, CBO_CLEAN, CBO_FLUSH, CBO_ZERO, CBO_NONE
+  } cbo_op_e;
+
   // RV64M operation.  W-suffixed forms are the OP-32 (word) encodings, kept as
   // distinct values for the same reason alu_op_e keeps ALU_ADDW distinct from
   // ALU_ADD: the multiply/divide unit needs to know the truncation width
@@ -101,12 +108,13 @@ package s1_pkg;
   } muldiv_op_e;
 
   // System/privileged/Zifencei micro-op (FENCE, FENCE.I, and SYSTEM funct3==000
-  // instructions). MRET/SRET/WFI legality is checked at retire, not here
-  // (SPEC 10.1). SFENCE.VMA differs: rs1/rs2 are real operands (vaddr, asid),
-  // identified by funct7==0001001; only rd is fixed to 0.
+  // instructions). MRET/SRET/WFI/DRET legality (privilege, debug mode) is
+  // checked at retire, not here (SPEC 10.1, 13). SFENCE.VMA differs: rs1/rs2
+  // are real operands (vaddr, asid), identified by funct7==0001001; only rd
+  // is fixed to 0.
   typedef enum logic [3:0] {
     SYS_NONE, SYS_ECALL, SYS_EBREAK, SYS_MRET, SYS_SRET, SYS_WFI,
-    SYS_FENCE, SYS_FENCE_I, SYS_SFENCE_VMA
+    SYS_FENCE, SYS_FENCE_I, SYS_SFENCE_VMA, SYS_DRET
   } sys_op_e;
 
   // ---------------------------------------------------------------------------
@@ -141,7 +149,7 @@ package s1_pkg;
     logic                   is_jal;
     logic                   is_jalr;
 
-    // -- load / store / atomic (consumed by s1_lsu.sv) -----------------------------
+    // -- load / store / atomic / cache-block (consumed by s1_lsu.sv) ---------------
     logic                   is_load;
     logic                   is_store;
     logic                   is_amo;
@@ -150,6 +158,8 @@ package s1_pkg;
     amo_op_e                amo_op;
     logic                   aq;
     logic                   rl;
+    logic                   is_cbo;          // Zicbom/Zicboz; address = rs1, no offset
+    cbo_op_e                cbo_op;
 
     // -- multiply / divide --------------------------------------------------------
     logic                   is_mul;

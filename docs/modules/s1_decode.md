@@ -6,9 +6,9 @@
 | **Owner** | @Ammarahwakeel |
 | **Backup** | _(assign at Phase-0 review)_ |
 | **Project** | T-02 (decode stage), tested by M-07 |
-| **Spec** | SPEC §6, §7.1, §7.2, §8 (consumed by, not implemented by, this module), §9.1, §9.2, §10.2, §11, §19 (MXIF) |
+| **Spec** | SPEC §6, §7.1, §7.2, §7.4/§14/§15 (Zicbom issues in MEM/LSU/D$, not here), §8 (consumed by, not implemented by, this module), §9.1, §9.2, §10.2, §11, §13 (DRET), §19 (MXIF) |
 | **Source** | `rtl/core/s1_decode.sv` |
-| **Testbench** | `verif/unit/tb_s1_decode.sv` — 351 checks |
+| **Testbench** | `verif/unit/tb_s1_decode.sv` — 372 checks |
 
 ## Purpose
 
@@ -87,9 +87,10 @@ case arm for each opcode picks the one it needs.
 | `OP_BRANCH` (`1100011`) | BEQ BNE BLT BGE BLTU BGEU | `funct3` | `UNIT_ALU` (comparator) | `funct3` 010/011 reserved; `rs1`/`rs2` read raw, never through the ALU-imm mux |
 | `OP_JAL` (`1101111`) | JAL | — | `UNIT_ALU` | `op1_is_pc=1`, `imm=imm_j`, `is_jal=1` |
 | `OP_JALR` (`1100111`) | JALR | `funct3==000` | `UNIT_ALU` | any other `funct3` reserved |
-| `OP_AMO` (`0101111`) | LR SC AMOSWAP AMOADD AMOXOR AMOAND AMOOR AMOMIN AMOMAX AMOMINU AMOMAXU (.W/.D) | `funct3` (010=W/011=D) then `funct7[6:2]` | `UNIT_LSU` | address = `rs1` only, no offset; `LR` excludes `rs2_re`; any other `funct3` (byte/half width) reserved |
-| `OP_MISC_MEM` (`0001111`) | FENCE, FENCE.I | `funct3`; requires `rs1==0 && rd==0` | `UNIT_NONE` | `rs1`/`rd` checked, not assumed, from the opcode alone; other `funct3` reserved |
-| `OP_SYSTEM` (`1110011`) | ECALL EBREAK SRET MRET WFI SFENCE.VMA · CSRRW CSRRS CSRRC CSRRWI CSRRSI CSRRCI | `funct3==000` → `instr[31:20]` fixed pattern, or `funct7==0001001` (SFENCE.VMA, real `rs1`/`rs2` operands, `rd` fixed to 0); any other `funct3` → Zicsr via `funct3[1:0]` | `UNIT_NONE` / `UNIT_CSR` | Zicsr immediate forms (`csr_imm=funct3[2]`) set `rs1_re=0` even though `rs1_f` still carries the zero-extended 5-bit uimm into `decoded_o.imm` |
+| `OP_AMO` (`0101111`) | LR SC AMOSWAP AMOADD AMOXOR AMOAND AMOOR AMOMIN AMOMAX AMOMINU AMOMAXU (.W/.D) | `funct3` (010=W/011=D) then `funct7[6:2]` | `UNIT_LSU` | address = `rs1` only, no offset; `LR` excludes `rs2_re` and requires `rs2==0` (RVA; `rs2!=0` is reserved); any other `funct3` (byte/half width) reserved |
+| `OP_MISC_MEM` (`0001111`) | FENCE, FENCE.I | `funct3==000/001` | `UNIT_NONE` | `rs1`/`rd` are reserved fields (riscv-opcodes `rv_i::fence`, `rv_zifencei::fence.i`), not fixed to 0 — this decoder ignores their value, per base-implementation forward-compatibility rules |
+| `OP_MISC_MEM` (`0001111`) | CBO.INVAL CBO.CLEAN CBO.FLUSH CBO.ZERO (Zicbom/Zicboz) | `funct3==010`, then `instr[31:20]` (0/1/2/4) | `UNIT_LSU` | address = `rs1` only, no offset, same convention as AMO; `rd` **is** fixed to 0 here (riscv-opcodes `rv_zicbo`: `11..7=0`) — unlike FENCE, a nonzero `rd` is reserved, not ignored; any other `funct3` or `instr[31:20]` value under `funct3==010` reserved |
+| `OP_SYSTEM` (`1110011`) | ECALL EBREAK SRET MRET WFI DRET SFENCE.VMA · CSRRW CSRRS CSRRC CSRRWI CSRRSI CSRRCI | `funct3==000` → `instr[31:20]` fixed pattern, or `funct7==0001001` (SFENCE.VMA, real `rs1`/`rs2` operands, `rd` fixed to 0); any other `funct3` → Zicsr via `funct3[1:0]` | `UNIT_NONE` / `UNIT_CSR` | ECALL/EBREAK/SRET/MRET/WFI/DRET all require `rs1==0 && rd==0` (fixed by their encoding, unlike FENCE); Zicsr immediate forms (`csr_imm=funct3[2]`) set `rs1_re=0` even though `rs1_f` still carries the zero-extended 5-bit uimm into `decoded_o.imm` |
 | unrecognised opcode | — (MXIF candidate) | — | `UNIT_MXIF` / `UNIT_NONE` | see MXIF row below |
 
 ### Design rules (not opcode-specific)
@@ -116,7 +117,7 @@ Privilege checks (CSR access, MRET/SRET/WFI legality) are performed downstream, 
 | Layer | Status | Where |
 |---|---|---|
 | Lint | not independently verified against an artifact in this review | `make lint TB=s1_decode` |
-| Unit test | **351 checks** — 96 named instructions (37 RV64I + 12 RV64I+ + 13 RVM + 11 RV64A + 14 SYSTEM + 9 pseudo-instruction spot checks), every reserved funct3/funct7 pair adjacent to its legal neighbour, both `MXIF_EN` configurations, the compressed-instruction guard | `verif/unit/tb_s1_decode.sv` |
+| Unit test | **372 checks** — 101 named instructions (37 RV64I + 12 RV64I+ + 13 RVM + 11 RV64A + 15 SYSTEM + 4 Zicbom/Zicboz + 9 pseudo-instruction spot checks), every reserved funct3/funct7 pair adjacent to its legal neighbour, both `MXIF_EN` configurations, the compressed-instruction guard | `verif/unit/tb_s1_decode.sv` |
 | Co-simulation | not independently verified against an artifact in this review | |
 | Formal | not yet | candidate for T-07 |
 
@@ -127,6 +128,13 @@ Privilege checks (CSR access, MRET/SRET/WFI legality) are performed downstream, 
   boundary; this decoder never sees them. Every "32-bit equivalent" in the compressed table is already
   covered by the RV64I/RV64I+/RVM sections (e.g. `c.addi`→`addi`, `c.lw`→`lw`, `c.jal`→`jal`).
 - **No Zbb bit-manipulation.** Not decoded anywhere in the opcode case; out of scope for v1.0.
+- **No per-config ISA-extension gating.** This decoder accepts RV64A, RV64M, Zicsr, Zifencei, Zicbom
+  and Zicboz encodings unconditionally, regardless of `soc.yaml`'s ISA string for the active config.
+  S1-Nano's ISA is RV64IMC (no A, no Zicsr/Zifencei, no Zicbom/Zicboz per SPEC §5.3), so on that
+  config this decoder currently accepts instructions its own ISA string says it shouldn't. `MXIF_EN`
+  is the only config-conditional legality check today. Pre-existing gap (predates the Zicbom/Zicboz
+  addition), not something introduced by adding CBO support -- flagged here rather than silently
+  carried forward.
 - **`x0` is not special-cased.** Reads of `rs1`/`rs2`==`x0` and writes to `rd`==`x0` are decoded
   normally (`rd_we` can be `1` for `rd==0`, e.g. on `nop`/`j`/`csrw`); the regfile is responsible for
   discarding writes to `x0`, not this module.

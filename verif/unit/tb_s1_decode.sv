@@ -569,6 +569,12 @@ module tb_s1_decode;
     check_field("amo_op", dec_mxif_on.amo_op, AMO_LR);
     check_field("mem_size", dec_mxif_on.mem_size, LS_DOUBLE);
 
+    cur_test = "LR.D/reserved-rs2-nonzero";
+    // RVA (riscv-opcodes rv_a::lr.w: "rd rs1 24..20=0 aq rl ...") requires
+    // rs2=0 for LR; rs2!=0 is a reserved encoding, not an ordinary LR.
+    instr = enc_amo(5'b00010, 1'b0, 1'b0, 5'd3, 5'd10, 3'b011, 5'd11); #1;
+    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+
     cur_test = "sc.w.aqrl"; named("sc.w");
     instr = enc_amo(5'b00011, 1'b1, 1'b1, 5'd12, 5'd10, 3'b010, 5'd11); #1;
     expect_common(UNIT_LSU, 1'b0, 1'b1, 1'b1, 1'b1);   // SC reads rs2 (value to write)
@@ -624,8 +630,9 @@ module tb_s1_decode;
     check_field("illegal", dec_mxif_on.illegal, 1'b1);
 
     // ==========================================================================
-    // SYSTEM -- 14 instructions: fence, fence.i, ecall, ebreak, sret, mret, wfi,
-    // sfence.vma, csrrw/rs/rc, csrrwi/rsi/rci.
+    // MISC-MEM / SYSTEM -- 19 instructions: fence, fence.i, cbo.inval/clean/
+    // flush/zero, ecall, ebreak, sret, mret, wfi, dret, sfence.vma,
+    // csrrw/rs/rc, csrrwi/rsi/rci.
     // ==========================================================================
 
     cur_test = "fence"; named("fence");
@@ -638,18 +645,52 @@ module tb_s1_decode;
     check_field("sys_op", dec_mxif_on.sys_op, SYS_FENCE_I);
     check_field("illegal", dec_mxif_on.illegal, 1'b0);
 
-    cur_test = "MISCMEM/reserved-funct3-010";
-    instr = enc_fence(4'b0000, 4'b0000, 4'b0000, 3'b010); #1;
+    cur_test = "cbo.inval"; named("cbo.inval");
+    // riscv-opcodes rv_zicbo: "cbo.inval rs1 31..20=0 14..12=2 11..7=0 6..2=0x03".
+    instr = {12'h000, 5'd10, 3'b010, 5'b0, OP_MISC_MEM}; #1;
+    expect_common(UNIT_LSU, 1'b0, 1'b0, 1'b1, 1'b0);
+    check_field("is_cbo", dec_mxif_on.is_cbo, 1'b1);
+    check_field("cbo_op", dec_mxif_on.cbo_op, CBO_INVAL);
+
+    cur_test = "cbo.clean"; named("cbo.clean");
+    instr = {12'h001, 5'd10, 3'b010, 5'b0, OP_MISC_MEM}; #1;
+    check_field("cbo_op", dec_mxif_on.cbo_op, CBO_CLEAN);
+    check_field("illegal", dec_mxif_on.illegal, 1'b0);
+
+    cur_test = "cbo.flush"; named("cbo.flush");
+    instr = {12'h002, 5'd10, 3'b010, 5'b0, OP_MISC_MEM}; #1;
+    check_field("cbo_op", dec_mxif_on.cbo_op, CBO_FLUSH);
+    check_field("illegal", dec_mxif_on.illegal, 1'b0);
+
+    cur_test = "cbo.zero"; named("cbo.zero");
+    instr = {12'h004, 5'd10, 3'b010, 5'b0, OP_MISC_MEM}; #1;
+    check_field("cbo_op", dec_mxif_on.cbo_op, CBO_ZERO);
+    check_field("illegal", dec_mxif_on.illegal, 1'b0);
+
+    cur_test = "CBO/reserved-imm12";
+    // imm12 values other than 0/1/2/4 under funct3=010 are reserved.
+    instr = {12'h003, 5'd10, 3'b010, 5'b0, OP_MISC_MEM}; #1;
+    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    check_field("is_cbo", dec_mxif_on.is_cbo, 1'b0);
+
+    cur_test = "CBO/reserved-rd-nonzero";
+    // Unlike FENCE, rd IS fixed to 0 for CBO (riscv-opcodes rv_zicbo: "11..7=0").
+    instr = {12'h000, 5'd10, 3'b010, 5'd3, OP_MISC_MEM}; #1;
     check_field("illegal", dec_mxif_on.illegal, 1'b1);
 
-    cur_test = "MISCMEM/reserved-rs1-nonzero";
-    // Table: "rs1,rd=0" required. rs1 != 0 must be illegal, not silently accepted.
+    cur_test = "MISCMEM/rs1-nonzero-ignored";
+    // riscv-opcodes rv_i::fence: "fm pred succ rs1 14..12=0 rd 6..2=0x03 1..0=3"
+    // -- rs1 and rd are named fields, not fixed to 0. They are reserved for
+    // future finer-grain fences, and base implementations must ignore them
+    // rather than raise illegal instruction.
     instr = {12'b0, 5'd7, 3'b000, 5'b0, OP_MISC_MEM}; #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    check_field("illegal", dec_mxif_on.illegal, 1'b0);
+    check_field("sys_op", dec_mxif_on.sys_op, SYS_FENCE);
 
-    cur_test = "MISCMEM/reserved-rd-nonzero";
+    cur_test = "MISCMEM/rd-nonzero-ignored";
     instr = {12'b0, 5'b0, 3'b000, 5'd7, OP_MISC_MEM}; #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    check_field("illegal", dec_mxif_on.illegal, 1'b0);
+    check_field("sys_op", dec_mxif_on.sys_op, SYS_FENCE);
 
     cur_test = "ecall"; named("ecall");
     instr = enc_sys12(12'h000, 5'd0, 5'd0); #1;
@@ -671,6 +712,18 @@ module tb_s1_decode;
     cur_test = "wfi"; named("wfi");
     instr = enc_sys12(12'h105, 5'd0, 5'd0); #1;
     check_field("sys_op", dec_mxif_on.sys_op, SYS_WFI);
+
+    cur_test = "dret"; named("dret");
+    // riscv-opcodes rv_sdext::dret: "11..7=0 19..15=0 31..20=0x7b2 14..12=0
+    // 6..2=0x1C 1..0=3" -- needed for FR-8 (debug exit); legality (must be in
+    // Debug Mode) is checked at retire, SPEC 13.
+    instr = enc_sys12(12'h7b2, 5'd0, 5'd0); #1;
+    check_field("sys_op", dec_mxif_on.sys_op, SYS_DRET);
+    check_field("illegal", dec_mxif_on.illegal, 1'b0);
+
+    cur_test = "DRET/reserved-rs1-nonzero";
+    instr = enc_sys12(12'h7b2, 5'd9, 5'd0); #1;
+    check_field("illegal", dec_mxif_on.illegal, 1'b1);
 
     cur_test = "SYSTEM/reserved-imm12";
     instr = enc_sys12(12'hABC, 5'd0, 5'd0); #1;
@@ -851,7 +904,7 @@ module tb_s1_decode;
     // ==========================================================================
     #1;
     $display("---------------------------------------------------------------");
-    $display("named instructions covered: %0d (37 RV64I + 12 RV64I+ + 13 RVM + 11 RV64A + 14 SYSTEM = 87, + 9 pseudo-instruction spot checks)", instr_count);
+    $display("named instructions covered: %0d (37 RV64I + 12 RV64I+ + 13 RVM + 11 RV64A + 15 SYSTEM + 4 Zicbom/Zicboz = 92, + 9 pseudo-instruction spot checks)", instr_count);
     if (errors == 0)
       $display("=== PASS : %0d checks ===", checks);
     else

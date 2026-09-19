@@ -89,6 +89,7 @@ module s1_decode
     decoded_o.alu_op    = ALU_ADD;
     decoded_o.mem_size  = LS_WORD;
     decoded_o.amo_op    = AMO_NONE;
+    decoded_o.cbo_op    = CBO_NONE;
     decoded_o.muldiv_op = MULDIV_NONE;
     decoded_o.csr_op    = CSR_NONE;
     decoded_o.sys_op    = SYS_NONE;
@@ -369,7 +370,11 @@ module s1_decode
         if (funct3 == 3'b010 || funct3 == 3'b011) begin
           decoded_o.mem_size = (funct3 == 3'b011) ? LS_DOUBLE : LS_WORD;
           unique case (funct7[6:2])
-            5'b00010: begin decoded_o.amo_op = AMO_LR;    decoded_o.illegal = 1'b0; end
+            5'b00010: begin
+              // LR.W/LR.D require rs2=0 (RVA, riscv-opcodes rv_a::lr.w); rs2!=0 is reserved.
+              decoded_o.amo_op  = AMO_LR;
+              decoded_o.illegal = (rs2_f != 5'b0);
+            end
             5'b00011: begin decoded_o.amo_op = AMO_SC;    decoded_o.illegal = 1'b0; end
             5'b00001: begin decoded_o.amo_op = AMO_SWAP;  decoded_o.illegal = 1'b0; end
             5'b00000: begin decoded_o.amo_op = AMO_ADD;   decoded_o.illegal = 1'b0; end
@@ -389,16 +394,37 @@ module s1_decode
         end
       end
 
-      // -- MISC-MEM: FENCE / FENCE.I. rs1 and rd are architecturally fixed at 0
-      OP_MISC_MEM: begin
+      // -- MISC-MEM: FENCE / FENCE.I / Zicbom+Zicboz cache-block operations.
+      //    FENCE/FENCE.I: rs1 and rd are reserved for future finer-grain
+      //    fences (riscv-opcodes rv_i::fence, rv_zifencei::fence.i show them
+      //    as unconstrained fields, not fixed to 0)
+      //    CBO.*: rd IS hard-fixed to 0
         decoded_o.unit = UNIT_NONE;
-        if (rs1_f == 5'b0 && rd_f == 5'b0) begin
-          unique case (funct3)
-            3'b000: begin decoded_o.sys_op = SYS_FENCE;   decoded_o.illegal = 1'b0; end
-            3'b001: begin decoded_o.sys_op = SYS_FENCE_I; decoded_o.illegal = 1'b0; end
-            default: ;  // illegal stays asserted
-          endcase
-        end
+        unique case (funct3)
+          3'b000: begin decoded_o.sys_op = SYS_FENCE;   decoded_o.illegal = 1'b0; end
+          3'b001: begin decoded_o.sys_op = SYS_FENCE_I; decoded_o.illegal = 1'b0; end
+          3'b010: begin
+            // cbo.inval/clean/flush (Zicbom) and cbo.zero (Zicboz); imm[11:0]
+            // selects the operation (riscv-opcodes rv_zicbo).
+            if (rd_f == 5'b0) begin
+              decoded_o.unit   = UNIT_LSU;
+              decoded_o.is_cbo = 1'b1;
+              decoded_o.rs1_re = 1'b1;
+              unique case (instr_i[31:20])
+                12'h000: begin decoded_o.cbo_op = CBO_INVAL; decoded_o.illegal = 1'b0; end
+                12'h001: begin decoded_o.cbo_op = CBO_CLEAN; decoded_o.illegal = 1'b0; end
+                12'h002: begin decoded_o.cbo_op = CBO_FLUSH; decoded_o.illegal = 1'b0; end
+                12'h004: begin decoded_o.cbo_op = CBO_ZERO;  decoded_o.illegal = 1'b0; end
+                default: begin
+                  decoded_o.unit   = UNIT_NONE;
+                  decoded_o.is_cbo = 1'b0;
+                  decoded_o.rs1_re = 1'b0;
+                end
+              endcase
+            end
+          end
+          default: ;  // illegal stays asserted
+        endcase
       end
 
       // -- SYSTEM: Zicsr, or funct3==000 privileged instructions --------------------
@@ -422,6 +448,7 @@ module s1_decode
               12'h102: begin decoded_o.sys_op = SYS_SRET;   decoded_o.illegal = 1'b0; end  // legality checked at retire, SPEC 10.1
               12'h302: begin decoded_o.sys_op = SYS_MRET;   decoded_o.illegal = 1'b0; end
               12'h105: begin decoded_o.sys_op = SYS_WFI;    decoded_o.illegal = 1'b0; end
+              12'h7b2: begin decoded_o.sys_op = SYS_DRET;   decoded_o.illegal = 1'b0; end  // Debug spec; legality (must be in Debug Mode) checked at retire, SPEC 13
               default: ;  // illegal stays asserted
             endcase
           end
