@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Status** | SKELETON / WIP / COMPLETE |
-| **Authorship** | see the file header (`Author(s)` / `Modified By`) — CODING_STANDARD.md §5 |
+| **Owner** | @github-handle |
+| **Backup** | @github-handle |
 | **Project** | catalogue id, e.g. T-02 |
 | **Spec** | SPEC §x.y, INTERFACES.md §z |
 | **Source** | `rtl/<subsystem>/<module_name>.sv` |

@@ -3,7 +3,8 @@
 | | |
 |---|---|
 | **Status** | COMPLETE (behavioural); FPGA and ASIC variants TODO |
-| **Authorship** | see the file header (`Author(s)` / `Modified By`) — CODING_STANDARD.md §5 |
+| **Owner** | _(assign at Phase-0 review)_ |
+| **Backup** | _(assign)_ |
 | **Project** | R-03 (caches, Zicbom and the SRAM wrapper) |
 | **Spec** | SPEC §17, `specs/INTERFACES.md` §8, ADR-0005 |
 | **Source** | `rtl/common/meds_s1_sram.sv` |

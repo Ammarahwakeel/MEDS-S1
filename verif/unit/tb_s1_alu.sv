@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE file for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Author(s)    : Umer Shahid (umer.shahid@10xengineers.ai) (Aug 2026)
+// Author(s)    : Umer Shahid (Aug 2026)
 // Modified By  :
 //
 // tb_s1_alu : unit testbench for s1_alu               [COMPLETE -- REFERENCE]

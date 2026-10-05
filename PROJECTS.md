@@ -128,6 +128,6 @@ From [`EXECUTION_PLAN.md`](EXECUTION_PLAN.md) §8. A work package is not done be
 - ☐ Unit testbench in CI, passing, with a plausible check count
 - ☐ `docs/modules/<module>.md` stating the interface contract (NFR-7)
 - ☐ Integrated into at least one named config and elaborating in CI
-- ☐ Author(s) recorded in the file header (CODING_STANDARD.md §5)
+- ☐ Owner **and backup** recorded
 - ☐ Demonstrated at a demo day — running, not slides
 

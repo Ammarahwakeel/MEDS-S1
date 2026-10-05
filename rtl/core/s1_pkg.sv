@@ -3,7 +3,7 @@
 // Licensed under the Apache License, Version 2.0, see LICENSE file for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Author(s)    : Umer Shahid (umer.shahid@10xengineers.ai) (Aug 2026)
+// Author(s)    : Umer Shahid (Aug 2026)
 // Modified By  :
 //
 // s1_pkg : MEDS-S1 core parameters and shared types                [COMPLETE]

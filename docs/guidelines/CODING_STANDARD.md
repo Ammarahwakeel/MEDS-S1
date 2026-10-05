@@ -153,9 +153,9 @@ Two traps when editing `verif/verilator.vlt`:
 | ID | Rule | |
 |---|---|---|
 | **R-D1** | Every source directory has a `README.md` saying what lives there, what does not, and how to add something. | **[auto]** |
-| **R-D2** | Every `.sv` and `.py` file carries the SPDX header, with `Author(s)` and `Modified By` fields (below). | **[auto]** |
+| **R-D2** | Every `.sv` and `.py` file carries the SPDX header. | **[auto]** |
 | **R-D3** | Every RTL module has a page in `docs/modules/` following `TEMPLATE.md`, merged with the module (NFR-7). | **[auto: presence]** |
-| **R-D4** | A module header states who wrote and last touched it, what it does, its status tag, and where its contract is specified. | |
+| **R-D4** | A module header states who wrote it, what it does, its status tag, and where its contract is specified (template below). | |
 | **R-D5** | Comments explain *why*, not *what*. `// increment counter` above `count_d = count_q + 1` is noise; `// saturates rather than wrapping, because the PLIC treats 0 as no-interrupt` is not. | |
 
 Status tags in module headers, so a reader can tell finished from stub at a glance:
@@ -178,8 +178,8 @@ header verbatim and edit the fields.
 // Licensed under the Apache License, Version 2.0, see LICENSE file for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Author(s)    : Full Name (email) (Mon Year)
-// Modified By  : Full Name (email) (Mon Year) -- one-line reason for the change
+// Author(s)    : Full Name (Mon Year)
+// Modified By  : Full Name (Mon Year) -- one-line reason for the change
 //
 // <module_name> : <one-line purpose>                   [<STATUS TAG>]
 // Description  :
@@ -194,7 +194,10 @@ header verbatim and edit the fields.
 - **`Modified By`** gets one new line per contributor who substantively changes the file after
   that — append, don't overwrite the ones already there, so the header reads as a log. A typo fix
   or a rebase doesn't count; a behavioural or interface change does.
-- This is now the single source of truth for who wrote and last touched a file.
+- `git log` stays the record of who changed what. The header is credit that travels with the file
+  when it is read or copied outside the repository.
+- The header does not replace **Owner** and **Backup** on the module page (`docs/modules/`). Those
+  say who answers for the module today; the header says who wrote it.
 
 ---
 
