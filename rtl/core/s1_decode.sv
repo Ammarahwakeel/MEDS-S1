@@ -399,6 +399,7 @@ module s1_decode
       //    fences (riscv-opcodes rv_i::fence, rv_zifencei::fence.i show them
       //    as unconstrained fields, not fixed to 0)
       //    CBO.*: rd IS hard-fixed to 0
+      OP_MISC_MEM: begin
         decoded_o.unit = UNIT_NONE;
         unique case (funct3)
           3'b000: begin decoded_o.sys_op = SYS_FENCE;   decoded_o.illegal = 1'b0; end
