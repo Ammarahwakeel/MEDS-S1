@@ -1,18 +1,15 @@
-// =============================================================================
 // Copyright 2026 Maktab-e-Digital Systems Lahore.
 // Licensed under the Apache License, Version 2.0, see LICENSE file for details.
 // SPDX-License-Identifier: Apache-2.0
 //
-// Author(s)    : Ammarah Wakeel (ammarahwakeel9@gmail.com) (Aug,2026)
-// Modified By  :
+// =============================================================================
+// s1_decode : ID-stage instruction decoder                           [COMPLETE]
 //
-// s1_decode    : ID-stage instruction decoder
-// Description  :
 // Purely combinational.  Takes one 32-bit, already-C-expanded instruction
-// (SPEC section 7.1,everything downstream of IF/ID sees only 32-bit
-// encodings) and produces one decoded_op_t control bundle (SPEC section 7.2,
-// s1_pkg.sv).
+// (SPEC section 7.1, everything downstream of IF/ID sees only 32-bit
+// encodings) and produces one decoded_op_t control bundle (s1_pkg.sv).
 //
+// Reference: SPEC section 7.2.  Testbench: verif/unit/tb_s1_decode.sv.
 // =============================================================================
 
 module s1_decode
@@ -57,7 +54,7 @@ module s1_decode
   logic [6:0] opcode;
   logic [2:0] funct3;
   logic [6:0] funct7;
-  logic [4:0] rd_f, rs1_f, rs2_f;
+  logic [REG_ADDR_W-1:0] rd_f, rs1_f, rs2_f;
 
   assign opcode = instr_i[6:0];
   assign funct3 = instr_i[14:12];
@@ -66,16 +63,22 @@ module s1_decode
   assign rs1_f  = instr_i[19:15];
   assign rs2_f  = instr_i[24:20];
 
-  // Immediates, sign-extended to XLEN.  Standard RV64 formulas: each replicates
-  // instr_i[31] up to the low bit the format actually encodes.
+  // Immediates, sign-extended to XLEN.  Each replicates instr_i[31] from the
+  // top of the immediate the format encodes up to XLEN, so the widths below are
+  // properties of the instruction formats, not of the datapath.
+  localparam int unsigned IMM_I_W = 12;   // I- and S-type: imm[11:0]
+  localparam int unsigned IMM_B_W = 13;   // B-type: imm[12:1], bit 0 always 0
+  localparam int unsigned IMM_U_W = 32;   // U-type: imm[31:12], low 12 bits 0
+  localparam int unsigned IMM_J_W = 21;   // J-type: imm[20:1], bit 0 always 0
+
   logic [XLEN-1:0] imm_i, imm_s, imm_b, imm_u, imm_j;
 
-  assign imm_i = {{52{instr_i[31]}}, instr_i[31:20]};
-  assign imm_s = {{52{instr_i[31]}}, instr_i[31:25], instr_i[11:7]};
-  assign imm_b = {{51{instr_i[31]}}, instr_i[31], instr_i[7],
+  assign imm_i = {{(XLEN-IMM_I_W){instr_i[31]}}, instr_i[31:20]};
+  assign imm_s = {{(XLEN-IMM_I_W){instr_i[31]}}, instr_i[31:25], instr_i[11:7]};
+  assign imm_b = {{(XLEN-IMM_B_W){instr_i[31]}}, instr_i[31], instr_i[7],
                   instr_i[30:25], instr_i[11:8], 1'b0};
-  assign imm_u = {{32{instr_i[31]}}, instr_i[31:12], 12'b0};
-  assign imm_j = {{43{instr_i[31]}}, instr_i[31], instr_i[19:12],
+  assign imm_u = {{(XLEN-IMM_U_W){instr_i[31]}}, instr_i[31:12], 12'b0};
+  assign imm_j = {{(XLEN-IMM_J_W){instr_i[31]}}, instr_i[31], instr_i[19:12],
                   instr_i[20], instr_i[30:21], 1'b0};
 
   // ---------------------------------------------------------------------------
@@ -108,8 +111,6 @@ module s1_decode
         decoded_o.rd_we  = 1'b1;
         if (funct7 == FUNCT7_MULDIV) begin
           decoded_o.unit    = funct3[2] ? UNIT_DIV : UNIT_MUL;
-          decoded_o.is_mul  = ~funct3[2];
-          decoded_o.is_div  = funct3[2];
           decoded_o.illegal = 1'b0;
           unique case (funct3)
             3'b000: decoded_o.muldiv_op = MULDIV_MUL;
@@ -152,9 +153,6 @@ module s1_decode
         decoded_o.rd_we  = 1'b1;
         if (funct7 == FUNCT7_MULDIV) begin
           decoded_o.unit   = (funct3 == 3'b000) ? UNIT_MUL : UNIT_DIV;
-          decoded_o.is_mul = (funct3 == 3'b000);
-          decoded_o.is_div = (funct3 == 3'b100) || (funct3 == 3'b101) ||
-                              (funct3 == 3'b110) || (funct3 == 3'b111);
           unique case (funct3)
             3'b000: begin decoded_o.muldiv_op = MULDIV_MULW;  decoded_o.illegal = 1'b0; end
             3'b100: begin decoded_o.muldiv_op = MULDIV_DIVW;  decoded_o.illegal = 1'b0; end
@@ -163,7 +161,7 @@ module s1_decode
             3'b111: begin decoded_o.muldiv_op = MULDIV_REMUW; decoded_o.illegal = 1'b0; end
             default: begin
               decoded_o.rs1_re = 1'b0; decoded_o.rs2_re = 1'b0; decoded_o.rd_we = 1'b0;
-              decoded_o.is_mul = 1'b0; decoded_o.is_div = 1'b0;
+              decoded_o.unit   = UNIT_NONE;   // mulhw/mulhsuw/mulhuw do not exist
             end
           endcase
         end else if (funct7 == 7'b000_0000 &&
@@ -364,7 +362,6 @@ module s1_decode
         decoded_o.rs1_re = 1'b1;
         decoded_o.rd_we  = 1'b1;
         decoded_o.unit   = UNIT_LSU;
-        decoded_o.is_amo = 1'b1;
         decoded_o.aq     = funct7[1];
         decoded_o.rl     = funct7[0];
         if (funct3 == 3'b010 || funct3 == 3'b011) begin
@@ -373,7 +370,7 @@ module s1_decode
             5'b00010: begin
               // LR.W/LR.D require rs2=0 (RVA, riscv-opcodes rv_a::lr.w); rs2!=0 is reserved.
               decoded_o.amo_op  = AMO_LR;
-              decoded_o.illegal = (rs2_f != 5'b0);
+              decoded_o.illegal = (rs2_f != '0);
             end
             5'b00011: begin decoded_o.amo_op = AMO_SC;    decoded_o.illegal = 1'b0; end
             5'b00001: begin decoded_o.amo_op = AMO_SWAP;  decoded_o.illegal = 1'b0; end
@@ -407,9 +404,8 @@ module s1_decode
           3'b010: begin
             // cbo.inval/clean/flush (Zicbom) and cbo.zero (Zicboz); imm[11:0]
             // selects the operation (riscv-opcodes rv_zicbo).
-            if (rd_f == 5'b0) begin
+            if (rd_f == '0) begin
               decoded_o.unit   = UNIT_LSU;
-              decoded_o.is_cbo = 1'b1;
               decoded_o.rs1_re = 1'b1;
               unique case (instr_i[31:20])
                 12'h000: begin decoded_o.cbo_op = CBO_INVAL; decoded_o.illegal = 1'b0; end
@@ -418,7 +414,6 @@ module s1_decode
                 12'h004: begin decoded_o.cbo_op = CBO_ZERO;  decoded_o.illegal = 1'b0; end
                 default: begin
                   decoded_o.unit   = UNIT_NONE;
-                  decoded_o.is_cbo = 1'b0;
                   decoded_o.rs1_re = 1'b0;
                 end
               endcase
@@ -436,13 +431,13 @@ module s1_decode
             // SFENCE.VMA rs1=vaddr, rs2=asid (real operands -- not part of a
             // fixed 12-bit pattern the way ECALL/EBREAK/MRET/SRET/WFI are).
             // Only rd is architecturally required to be 0.
-            if (rd_f == 5'b0) begin
+            if (rd_f == '0) begin
               decoded_o.sys_op  = SYS_SFENCE_VMA;
               decoded_o.rs1_re  = 1'b1;
               decoded_o.rs2_re  = 1'b1;
               decoded_o.illegal = 1'b0;
             end
-          end else if (rs1_f == 5'b0 && rd_f == 5'b0) begin
+          end else if (rs1_f == '0 && rd_f == '0) begin
             unique case (instr_i[31:20])
               12'h000: begin decoded_o.sys_op = SYS_ECALL;  decoded_o.illegal = 1'b0; end
               12'h001: begin decoded_o.sys_op = SYS_EBREAK; decoded_o.illegal = 1'b0; end
@@ -455,7 +450,6 @@ module s1_decode
           end
         end else begin
           decoded_o.unit     = UNIT_CSR;
-          decoded_o.is_csr   = 1'b1;
           decoded_o.rd_we    = 1'b1;
           decoded_o.csr_addr = instr_i[31:20];
           decoded_o.csr_imm  = funct3[2];
@@ -467,7 +461,6 @@ module s1_decode
             2'b11: begin decoded_o.csr_op = CSR_RC; decoded_o.illegal = 1'b0; end
             default: begin
               decoded_o.unit   = UNIT_NONE;
-              decoded_o.is_csr = 1'b0;
               decoded_o.rd_we  = 1'b0;
               decoded_o.rs1_re = 1'b0;
             end

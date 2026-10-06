@@ -150,24 +150,21 @@ package s1_pkg;
     logic                   is_jalr;
 
     // -- load / store / atomic / cache-block (consumed by s1_lsu.sv) ---------------
+    // All four are unit==UNIT_LSU.  An atomic is amo_op != AMO_NONE and a
+    // cache-block op is cbo_op != CBO_NONE; there is no separate flag for either.
     logic                   is_load;
     logic                   is_store;
-    logic                   is_amo;
     ls_size_e               mem_size;
     logic                   mem_signed;
     amo_op_e                amo_op;
     logic                   aq;
     logic                   rl;
-    logic                   is_cbo;          // Zicbom/Zicboz; address = rs1, no offset
-    cbo_op_e                cbo_op;
+    cbo_op_e                cbo_op;          // Zicbom/Zicboz; address = rs1, no offset
 
-    // -- multiply / divide --------------------------------------------------------
-    logic                   is_mul;
-    logic                   is_div;
+    // -- multiply / divide: unit==UNIT_MUL or UNIT_DIV ------------------------------
     muldiv_op_e             muldiv_op;
 
-    // -- CSR (Zicsr), consumed by s1_csr.sv -----------------------------------------
-    logic                   is_csr;
+    // -- CSR (Zicsr), consumed by s1_csr.sv: unit==UNIT_CSR, csr_op != CSR_NONE ------
     csr_op_e                csr_op;
     logic                   csr_imm;         // operand is uimm[4:0] (rs1 field), not rs1
     logic [11:0]            csr_addr;

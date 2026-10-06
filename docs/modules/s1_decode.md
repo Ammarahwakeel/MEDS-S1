@@ -8,7 +8,7 @@
 | **Project** | T-02 (decode stage), tested by M-07 |
 | **Spec** | SPEC §6, §7.1, §7.2, §7.4/§14/§15 (Zicbom issues in MEM/LSU/D$, not here), §8 (consumed by, not implemented by, this module), §9.1, §9.2, §10.2, §11, §13 (DRET), §19 (MXIF) |
 | **Source** | `rtl/core/s1_decode.sv` |
-| **Testbench** | `verif/unit/tb_s1_decode.sv` — 372 checks |
+| **Testbench** | `verif/unit/tb_s1_decode.sv` — 366 checks |
 
 ## Purpose
 
@@ -117,7 +117,7 @@ Privilege checks (CSR access, MRET/SRET/WFI legality) are performed downstream, 
 | Layer | Status | Where |
 |---|---|---|
 | Lint | not independently verified against an artifact in this review | `make lint TB=s1_decode` |
-| Unit test | **372 checks** — 101 named instructions (37 RV64I + 12 RV64I+ + 13 RVM + 11 RV64A + 15 SYSTEM + 4 Zicbom/Zicboz + 9 pseudo-instruction spot checks), every reserved funct3/funct7 pair adjacent to its legal neighbour, both `MXIF_EN` configurations, the compressed-instruction guard | `verif/unit/tb_s1_decode.sv` |
+| Unit test | **366 checks** — 101 named instructions (37 RV64I + 12 RV64I+ + 13 RVM + 11 RV64A + 15 SYSTEM + 4 Zicbom/Zicboz + 9 pseudo-instruction spot checks), every reserved funct3/funct7 pair adjacent to its legal neighbour, both `MXIF_EN` configurations, the compressed-instruction guard | `verif/unit/tb_s1_decode.sv` |
 | Co-simulation | not independently verified against an artifact in this review | |
 | Formal | not yet | candidate for T-07 |
 

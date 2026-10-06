@@ -52,7 +52,9 @@ def run_one(tb: pathlib.Path, srcs: list[pathlib.Path], keep: bool) -> dict:
         shutil.rmtree(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    incdirs = sorted({str(p.parent) for p in srcs})
+    # The testbench's own directory is on the include path, so a long testbench
+    # can be split into `include files that sit next to it.
+    incdirs = sorted({str(p.parent) for p in srcs} | {str(tb.parent)})
     cmd = [
         "verilator", "--binary", "--timing", "-Wall",
         "--top-module", name,
