@@ -11,8 +11,8 @@
 // Compressed (C) encodings aren't tested directly -- they're expanded to
 // 32-bit before IF/ID, so covering their 32-bit equivalents covers them too.
 //
-// The tests are grouped by extension, one `include file per group, next to
-// this file.
+// The tests are grouped by extension, one `include file per group next to
+// this file.  The instruction encoders are shared: verif/common/s1_instr_enc.svh.
 //
 // Run:  make test-unit               (all testbenches)
 //       make test-unit TB=s1_decode  (just this one)
@@ -51,7 +51,8 @@ module tb_s1_decode;
   int unsigned instr_count = 0;   // one bump per named instruction section below
   string       cur_test;
 
-  task automatic check_field(string field_name, logic [63:0] got, logic [63:0] exp);
+  task automatic check_field(string field_name, logic [XLEN-1:0] got,
+                              logic [XLEN-1:0] exp);
     checks++;
     if (got !== exp) begin
       errors++;
@@ -69,6 +70,21 @@ module tb_s1_decode;
     check_field("rs2_re",  dec_mxif_on.rs2_re,  rs2_re);
   endtask
 
+  // An encoding the base decoder does not recognise: offered to the coprocessor
+  // when one is attached, illegal otherwise, and never a register read or write
+  // of the core's own (SPEC 7.2 design note).
+  task automatic expect_unrecognised();
+    check_field("on.unit",           dec_mxif_on.unit,            UNIT_MXIF);
+    check_field("on.mxif_candidate", dec_mxif_on.mxif_candidate,  1'b1);
+    check_field("on.illegal",        dec_mxif_on.illegal,         1'b0);
+    check_field("off.unit",          dec_mxif_off.unit,           UNIT_NONE);
+    check_field("off.mxif_candidate", dec_mxif_off.mxif_candidate, 1'b0);
+    check_field("off.illegal",       dec_mxif_off.illegal,        1'b1);
+    check_field("off.rs1_re",        dec_mxif_off.rs1_re,         1'b0);
+    check_field("off.rs2_re",        dec_mxif_off.rs2_re,         1'b0);
+    check_field("off.rd_we",         dec_mxif_off.rd_we,          1'b0);
+  endtask
+
   // One call per legal instruction
   task automatic named(string mnemonic);
     instr_count++;
@@ -77,11 +93,11 @@ module tb_s1_decode;
   // ---------------------------------------------------------------------------
   // Encoders, then the test groups: one file per extension, one task each.
   // ---------------------------------------------------------------------------
-  `include "tb_s1_decode_enc.svh"
-  `include "tb_s1_decode_rv64i.svh"
-  `include "tb_s1_decode_m.svh"
-  `include "tb_s1_decode_a.svh"
-  `include "tb_s1_decode_system.svh"
+  `include "verif/common/s1_instr_enc.svh"
+  `include "verif/unit/tb_s1_decode_rv64i.svh"
+  `include "verif/unit/tb_s1_decode_m.svh"
+  `include "verif/unit/tb_s1_decode_a.svh"
+  `include "verif/unit/tb_s1_decode_system.svh"
 
   task automatic test_pseudo();
     // ==========================================================================
@@ -104,7 +120,7 @@ module tb_s1_decode;
     cur_test = "not == xori rd,rs1,-1"; named("not");
     instr = enc_i(12'hFFF, 5'd9, 3'b100, 5'd10, OP_IMM); #1;
     check_field("alu_op", dec_mxif_on.alu_op, ALU_XOR);
-    check_field("imm", dec_mxif_on.imm, 64'hFFFF_FFFF_FFFF_FFFF);
+    check_field("imm", dec_mxif_on.imm, {XLEN{1'b1}});
 
     cur_test = "neg == sub rd,x0,rs2"; named("neg");
     instr = enc_r(7'b0100000, 5'd9, 5'd0, 3'b000, 5'd10, OP_OP); #1;
@@ -175,8 +191,10 @@ module tb_s1_decode;
     // opcode[1:0] != 11 must never be legal, MXIF_EN or not (SPEC 7.1).
     instr = 32'h0000_0001;
     #1;
-    check_field("illegal_on",  dec_mxif_on.illegal,  1'b1);
-    check_field("illegal_off", dec_mxif_off.illegal, 1'b1);
+    check_field("illegal_on",    dec_mxif_on.illegal,         1'b1);
+    check_field("illegal_off",   dec_mxif_off.illegal,        1'b1);
+    check_field("unit_on",       dec_mxif_on.unit,            UNIT_NONE);
+    check_field("candidate_on",  dec_mxif_on.mxif_candidate,  1'b0);
 
     // ==========================================================================
     // x0 bookkeeping: decoder does not special-case x0, per s1_pkg.sv note
@@ -189,7 +207,7 @@ module tb_s1_decode;
   endtask
 
   initial begin
-    pc = 64'h8000_0100;
+    pc = XLEN'(32'h8000_0100);
 
     test_rv64i();
     test_rv64m();

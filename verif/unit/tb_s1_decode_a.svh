@@ -26,7 +26,7 @@
     // RVA (riscv-opcodes rv_a::lr.w: "rd rs1 24..20=0 aq rl ...") requires
     // rs2=0 for LR; rs2!=0 is a reserved encoding, not an ordinary LR.
     instr = enc_amo(5'b00010, 1'b0, 1'b0, 5'd3, 5'd10, 3'b011, 5'd11); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "sc.w.aqrl"; named("sc.w");
     instr = enc_amo(5'b00011, 1'b1, 1'b1, 5'd12, 5'd10, 3'b010, 5'd11); #1;
@@ -76,9 +76,9 @@
 
     cur_test = "AMO/reserved-f5";
     instr = enc_amo(5'b01111, 1'b0, 1'b0, 5'd12, 5'd10, 3'b010, 5'd11); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "AMO/reserved-funct3-byte-width";
     instr = enc_amo(5'b00000, 1'b0, 1'b0, 5'd12, 5'd10, 3'b000, 5'd11); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
   endtask

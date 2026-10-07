@@ -52,13 +52,13 @@
     cur_test = "CBO/reserved-imm12";
     // imm12 values other than 0/1/2/4 under funct3=010 are reserved.
     instr = {12'h003, 5'd10, 3'b010, 5'b0, OP_MISC_MEM}; #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
     check_field("cbo_op", dec_mxif_on.cbo_op, CBO_NONE);
 
     cur_test = "CBO/reserved-rd-nonzero";
     // Unlike FENCE, rd IS fixed to 0 for CBO (riscv-opcodes rv_zicbo: "11..7=0").
     instr = {12'h000, 5'd10, 3'b010, 5'd3, OP_MISC_MEM}; #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "MISCMEM/rs1-nonzero-ignored";
     // riscv-opcodes rv_i::fence: "fm pred succ rs1 14..12=0 rd 6..2=0x03 1..0=3"
@@ -105,22 +105,22 @@
 
     cur_test = "DRET/reserved-rs1-nonzero";
     instr = enc_sys12(12'h7b2, 5'd9, 5'd0); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "SYSTEM/reserved-imm12";
     instr = enc_sys12(12'hABC, 5'd0, 5'd0); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "ECALL/reserved-rd-nonzero";
     // Gap: instr[31:20]==0x000 alone is not sufficient:
     // rs1 and rd must also be 0 (table: "rs1,rd=0"). rd=x5 here must be illegal.
     instr = enc_sys12(12'h000, 5'd0, 5'd5); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
     check_field("sys_op", dec_mxif_on.sys_op, SYS_NONE);
 
     cur_test = "MRET/reserved-rs1-nonzero";
     instr = enc_sys12(12'h302, 5'd9, 5'd0); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "sfence.vma"; named("sfence.vma");
     // funct7=0001001, rs1=vaddr, rs2=asid, funct3=000, rd=0 (SPEC 10.1's Sv39
@@ -139,7 +139,7 @@
 
     cur_test = "SFENCEVMA/reserved-rd-nonzero";
     instr = enc_r(7'b0001001, 5'd6, 5'd5, 3'b000, 5'd3, OP_SYSTEM); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
     check_field("sys_op", dec_mxif_on.sys_op, SYS_NONE);
 
     cur_test = "csrrw"; named("csrrw");
@@ -163,7 +163,7 @@
     expect_common(UNIT_CSR, 1'b0, 1'b1, 1'b0, 1'b0);   // rs1 field is uimm, not a register read
     check_field("csr_op", dec_mxif_on.csr_op, CSR_RW);
     check_field("csr_imm", dec_mxif_on.csr_imm, 1'b1);
-    check_field("imm", dec_mxif_on.imm, 64'd17);
+    check_field("imm", dec_mxif_on.imm, XLEN'(17));
 
     cur_test = "csrrsi"; named("csrrsi");
     instr = {12'h304, 5'd1, 3'b110, 5'd6, OP_SYSTEM}; #1;
@@ -176,6 +176,6 @@
 
     cur_test = "SYSTEM/reserved-funct3-100";
     instr = {12'h300, 5'd1, 3'b100, 5'd6, OP_SYSTEM}; #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
     check_field("csr_op", dec_mxif_on.csr_op, CSR_NONE);
   endtask

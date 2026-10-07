@@ -82,25 +82,35 @@ module s1_decode
                   instr_i[20], instr_i[30:21], 1'b0};
 
   // ---------------------------------------------------------------------------
-  // Classification.  One always_comb, one struct, default-first.
+  // The bundle every decode starts from: nothing recognised yet.  A path below
+  // clears `illegal` only once it has matched a complete encoding.
+  // ---------------------------------------------------------------------------
+  decoded_op_t blank;
+
+  always_comb begin
+    blank           = '0;
+    blank.unit      = UNIT_NONE;
+    blank.illegal   = 1'b1;
+    blank.cmp_op    = CMP_NONE;
+    blank.alu_op    = ALU_ADD;
+    blank.mem_size  = LS_WORD;
+    blank.amo_op    = AMO_NONE;
+    blank.cbo_op    = CBO_NONE;
+    blank.muldiv_op = MULDIV_NONE;
+    blank.csr_op    = CSR_NONE;
+    blank.sys_op    = SYS_NONE;
+    blank.rs1       = rs1_f;
+    blank.rs2       = rs2_f;
+    blank.rd        = rd_f;
+    blank.pc        = pc_i;
+    blank.instr     = instr_i;
+  end
+
+  // ---------------------------------------------------------------------------
+  // Classification.  One struct, default-first.
   // ---------------------------------------------------------------------------
   always_comb begin
-    decoded_o          = '0;
-    decoded_o.unit      = UNIT_NONE;
-    decoded_o.illegal   = 1'b1;
-    decoded_o.cmp_op    = CMP_NONE;
-    decoded_o.alu_op    = ALU_ADD;
-    decoded_o.mem_size  = LS_WORD;
-    decoded_o.amo_op    = AMO_NONE;
-    decoded_o.cbo_op    = CBO_NONE;
-    decoded_o.muldiv_op = MULDIV_NONE;
-    decoded_o.csr_op    = CSR_NONE;
-    decoded_o.sys_op    = SYS_NONE;
-    decoded_o.rs1       = rs1_f;
-    decoded_o.rs2       = rs2_f;
-    decoded_o.rd        = rd_f;
-    decoded_o.pc        = pc_i;
-    decoded_o.instr     = instr_i;
+    decoded_o = blank;
 
     unique case (opcode)
 
@@ -139,10 +149,6 @@ module s1_decode
           decoded_o.unit    = UNIT_ALU;
           decoded_o.illegal = 1'b0;
           decoded_o.alu_op  = (funct3 == 3'b000) ? ALU_SUB : ALU_SRA;
-        end else begin
-          decoded_o.rs1_re = 1'b0;
-          decoded_o.rs2_re = 1'b0;
-          decoded_o.rd_we  = 1'b0;
         end
       end
 
@@ -159,10 +165,7 @@ module s1_decode
             3'b101: begin decoded_o.muldiv_op = MULDIV_DIVUW; decoded_o.illegal = 1'b0; end
             3'b110: begin decoded_o.muldiv_op = MULDIV_REMW;  decoded_o.illegal = 1'b0; end
             3'b111: begin decoded_o.muldiv_op = MULDIV_REMUW; decoded_o.illegal = 1'b0; end
-            default: begin
-              decoded_o.rs1_re = 1'b0; decoded_o.rs2_re = 1'b0; decoded_o.rd_we = 1'b0;
-              decoded_o.unit   = UNIT_NONE;   // mulhw/mulhsuw/mulhuw do not exist
-            end
+            default: ;  // unrecognised
           endcase
         end else if (funct7 == 7'b000_0000 &&
                      (funct3 == 3'b000 || funct3 == 3'b001 || funct3 == 3'b101)) begin
@@ -178,10 +181,6 @@ module s1_decode
           decoded_o.unit    = UNIT_ALU;
           decoded_o.illegal = 1'b0;
           decoded_o.alu_op  = (funct3 == 3'b000) ? ALU_SUBW : ALU_SRAW;
-        end else begin
-          decoded_o.rs1_re = 1'b0;
-          decoded_o.rs2_re = 1'b0;
-          decoded_o.rd_we  = 1'b0;
         end
       end
 
@@ -233,10 +232,7 @@ module s1_decode
             decoded_o.alu_op  = instr_i[30] ? ALU_SRAW : ALU_SRLW;
             decoded_o.illegal = (instr_i[31:25] != (instr_i[30] ? 7'b0100000 : 7'b0000000));
           end
-          default: begin
-            decoded_o.rs1_re = 1'b0;
-            decoded_o.rd_we  = 1'b0;
-          end
+          default: ;  // unrecognised
         endcase
       end
 
@@ -302,11 +298,7 @@ module s1_decode
           3'b101: begin decoded_o.cmp_op = CMP_GE;  decoded_o.illegal = 1'b0; end
           3'b110: begin decoded_o.cmp_op = CMP_LTU; decoded_o.illegal = 1'b0; end
           3'b111: begin decoded_o.cmp_op = CMP_GEU; decoded_o.illegal = 1'b0; end
-          default: begin
-            decoded_o.rs1_re    = 1'b0;
-            decoded_o.rs2_re    = 1'b0;
-            decoded_o.is_branch = 1'b0;
-          end
+          default: ;  // unrecognised
         endcase
       end
 
@@ -327,11 +319,7 @@ module s1_decode
           3'b100: begin decoded_o.mem_size = LS_BYTE;   decoded_o.mem_signed = 1'b0; decoded_o.illegal = 1'b0; end  // LBU
           3'b101: begin decoded_o.mem_size = LS_HALF;   decoded_o.mem_signed = 1'b0; decoded_o.illegal = 1'b0; end  // LHU
           3'b110: begin decoded_o.mem_size = LS_WORD;   decoded_o.mem_signed = 1'b0; decoded_o.illegal = 1'b0; end  // LWU
-          default: begin
-            decoded_o.rs1_re  = 1'b0;
-            decoded_o.rd_we   = 1'b0;
-            decoded_o.is_load = 1'b0;
-          end
+          default: ;  // unrecognised
         endcase
       end
 
@@ -349,11 +337,7 @@ module s1_decode
           3'b001: begin decoded_o.mem_size = LS_HALF;   decoded_o.illegal = 1'b0; end  // SH
           3'b010: begin decoded_o.mem_size = LS_WORD;   decoded_o.illegal = 1'b0; end  // SW
           3'b011: begin decoded_o.mem_size = LS_DOUBLE; decoded_o.illegal = 1'b0; end  // SD
-          default: begin
-            decoded_o.rs1_re   = 1'b0;
-            decoded_o.rs2_re   = 1'b0;
-            decoded_o.is_store = 1'b0;
-          end
+          default: ;  // unrecognised
         endcase
       end
 
@@ -382,10 +366,7 @@ module s1_decode
             5'b10100: begin decoded_o.amo_op = AMO_MAX;   decoded_o.illegal = 1'b0; end
             5'b11000: begin decoded_o.amo_op = AMO_MINU;  decoded_o.illegal = 1'b0; end
             5'b11100: begin decoded_o.amo_op = AMO_MAXU;  decoded_o.illegal = 1'b0; end
-            default: begin
-              decoded_o.rs1_re = 1'b0;
-              decoded_o.rd_we  = 1'b0;
-            end
+            default: ;  // unrecognised
           endcase
           decoded_o.rs2_re = ~decoded_o.illegal && (decoded_o.amo_op != AMO_LR);
         end
@@ -412,14 +393,11 @@ module s1_decode
                 12'h001: begin decoded_o.cbo_op = CBO_CLEAN; decoded_o.illegal = 1'b0; end
                 12'h002: begin decoded_o.cbo_op = CBO_FLUSH; decoded_o.illegal = 1'b0; end
                 12'h004: begin decoded_o.cbo_op = CBO_ZERO;  decoded_o.illegal = 1'b0; end
-                default: begin
-                  decoded_o.unit   = UNIT_NONE;
-                  decoded_o.rs1_re = 1'b0;
-                end
+                default: ;  // unrecognised
               endcase
             end
           end
-          default: ;  // illegal stays asserted
+          default: ;  // unrecognised
         endcase
       end
 
@@ -445,7 +423,7 @@ module s1_decode
               12'h302: begin decoded_o.sys_op = SYS_MRET;   decoded_o.illegal = 1'b0; end
               12'h105: begin decoded_o.sys_op = SYS_WFI;    decoded_o.illegal = 1'b0; end
               12'h7b2: begin decoded_o.sys_op = SYS_DRET;   decoded_o.illegal = 1'b0; end  // Debug spec; legality (must be in Debug Mode) checked at retire, SPEC 13
-              default: ;  // illegal stays asserted
+              default: ;  // unrecognised
             endcase
           end
         end else begin
@@ -459,34 +437,35 @@ module s1_decode
             2'b01: begin decoded_o.csr_op = CSR_RW; decoded_o.illegal = 1'b0; end
             2'b10: begin decoded_o.csr_op = CSR_RS; decoded_o.illegal = 1'b0; end
             2'b11: begin decoded_o.csr_op = CSR_RC; decoded_o.illegal = 1'b0; end
-            default: begin
-              decoded_o.unit   = UNIT_NONE;
-              decoded_o.rd_we  = 1'b0;
-              decoded_o.rs1_re = 1'b0;
-            end
+            default: ;  // unrecognised
           endcase
         end
       end
 
-      // -- unrecognised opcode: MXIF candidate, or illegal with no coprocessor
-      //    attached (SPEC 7.2 design note) -----------------------------------------
-      default: begin
-        decoded_o.rs1_re = 1'b1;  // offered conservatively; the coprocessor may ignore either
-        decoded_o.rs2_re = 1'b1;
-        decoded_o.rd_we  = 1'b1;  // CB retire rule (SPEC 9.2) still gates on x_result_valid
-        if (MXIF_EN) begin
-          decoded_o.unit           = UNIT_MXIF;
-          decoded_o.mxif_candidate = 1'b1;
-          decoded_o.illegal        = 1'b0;
-        end
-      end
+      default: ;  // unrecognised opcode
     endcase
 
+    // Anything not recognised above -- an unknown opcode, or a reserved encoding
+    // under a known one -- is offered to the coprocessor if one is attached, and
+    // is illegal otherwise (SPEC 7.2 design note).  Starting again from `blank`
+    // drops whatever a partly-matched path had already set.
+    if (decoded_o.illegal) begin
+      decoded_o = blank;
+      if (MXIF_EN) begin
+        decoded_o.unit           = UNIT_MXIF;
+        decoded_o.mxif_candidate = 1'b1;
+        decoded_o.illegal        = 1'b0;
+        decoded_o.rs1_re         = 1'b1;  // offered conservatively; the coprocessor may ignore either
+        decoded_o.rs2_re         = 1'b1;
+        decoded_o.rd_we          = 1'b1;  // not known here: the CB takes it from x_issue_writeback
+      end
+    end
+
     // Defensive structural check, not an ISA rule: a still-compressed
-    // instruction must never reach this module (SPEC 7.1). Any op_class
-    // decision above is void if this fires.
+    // instruction must never reach this module (SPEC 7.1).  It is illegal
+    // whether or not a coprocessor is attached.
     if (instr_i[1:0] != 2'b11) begin
-      decoded_o.illegal = 1'b1;
+      decoded_o = blank;
     end
   end
 

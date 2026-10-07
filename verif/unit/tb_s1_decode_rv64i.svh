@@ -51,7 +51,7 @@
 
     cur_test = "LOAD/reserved-funct3-111"; // no lwu at OP_LOAD 111 in RV32 base; see RV64I+ for lwu at 110
     instr = enc_i(12'h000, 5'd10, 3'b111, 5'd11, OP_LOAD); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
     check_field("is_load", dec_mxif_on.is_load, 1'b0);
 
     cur_test = "addi"; named("addi");
@@ -59,11 +59,11 @@
     expect_common(UNIT_ALU, 1'b0, 1'b1, 1'b1, 1'b0);
     check_field("alu_op", dec_mxif_on.alu_op, ALU_ADD);
     check_field("op2_is_imm", dec_mxif_on.op2_is_imm, 1'b1);
-    check_field("imm", dec_mxif_on.imm, {{52{1'b0}}, 12'h7FF});
+    check_field("imm", dec_mxif_on.imm, XLEN'(12'h7FF));
 
     cur_test = "addi/negative-imm";
     instr = enc_i(12'hFFF, 5'd5, 3'b000, 5'd6, OP_IMM); #1;   // imm = -1
-    check_field("imm", dec_mxif_on.imm, 64'hFFFF_FFFF_FFFF_FFFF);
+    check_field("imm", dec_mxif_on.imm, {XLEN{1'b1}});
 
     cur_test = "slli"; named("slli");
     instr = enc_i({6'b000000, 6'd3}, 5'd5, 3'b001, 5'd6, OP_IMM); #1;
@@ -110,7 +110,7 @@
     check_field("alu_op", dec_mxif_on.alu_op, ALU_ADD);
     check_field("op1_is_pc", dec_mxif_on.op1_is_pc, 1'b1);
     check_field("op2_is_imm", dec_mxif_on.op2_is_imm, 1'b1);
-    check_field("imm", dec_mxif_on.imm, 64'h0000_0000_0000_1000);
+    check_field("imm", dec_mxif_on.imm, XLEN'(13'h1000));
 
     cur_test = "sb"; named("sb");
     instr = enc_s(12'h000, 5'd12, 5'd10, 3'b000, OP_STORE); #1;
@@ -130,7 +130,7 @@
 
     cur_test = "STORE/reserved-funct3-111";
     instr = enc_s(12'h000, 5'd12, 5'd10, 3'b111, OP_STORE); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "add"; named("add");
     instr = enc_r(7'b0000000, 5'd3, 5'd2, 3'b000, 5'd1, OP_OP); #1;
@@ -188,19 +188,19 @@
 
     cur_test = "OP/reserved-funct7-0000010";
     instr = enc_r(7'b0000010, 5'd3, 5'd2, 3'b000, 5'd1, OP_OP); #1;
-    expect_common(UNIT_NONE, 1'b1, 1'b0, 1'b0, 1'b0);
+    expect_unrecognised();
 
     cur_test = "OP/reserved-0100000-on-SLL";
     // 0100000 is only a legal alternate for funct3 000/101; on SLL (001) it's reserved.
     instr = enc_r(7'b0100000, 5'd3, 5'd2, 3'b001, 5'd1, OP_OP); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "lui"; named("lui");
     instr = enc_u(20'hABCDE, 5'd9, OP_LUI); #1;
     expect_common(UNIT_ALU, 1'b0, 1'b1, 1'b0, 1'b0);
     check_field("alu_op", dec_mxif_on.alu_op, ALU_PASS_B);
     check_field("op1_is_pc", dec_mxif_on.op1_is_pc, 1'b0);
-    check_field("imm", dec_mxif_on.imm, {{32{1'b1}}, 20'hABCDE, 12'h0});  // sign-extended, top imm bit is 1
+    check_field("imm", dec_mxif_on.imm, XLEN'($signed({20'hABCDE, 12'h0})));  // sign-extended, top imm bit is 1
 
     cur_test = "beq"; named("beq");
     instr = enc_b(13'sd8, 5'd6, 5'd5, 3'b000, OP_BRANCH); #1;
@@ -209,7 +209,7 @@
     check_field("cmp_op", dec_mxif_on.cmp_op, CMP_EQ);
     check_field("op1_is_pc", dec_mxif_on.op1_is_pc, 1'b0);   // comparator reads rs1/rs2 raw
     check_field("op2_is_imm", dec_mxif_on.op2_is_imm, 1'b0);
-    check_field("imm", dec_mxif_on.imm, 64'd8);
+    check_field("imm", dec_mxif_on.imm, XLEN'(8));
 
     cur_test = "bne"; named("bne");
     instr = enc_b(13'sd8, 5'd6, 5'd5, 3'b001, OP_BRANCH); #1;
@@ -238,7 +238,7 @@
 
     cur_test = "BRANCH/reserved-funct3-010";
     instr = enc_b(13'sd8, 5'd6, 5'd5, 3'b010, OP_BRANCH); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
     check_field("is_branch", dec_mxif_on.is_branch, 1'b0);
 
     cur_test = "jalr"; named("jalr");
@@ -250,18 +250,18 @@
 
     cur_test = "JALR/reserved-funct3";
     instr = enc_i(12'h004, 5'd2, 3'b001, 5'd1, OP_JALR); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "jal"; named("jal");
     instr = enc_j(21'sd16, 5'd1, OP_JAL); #1;
     expect_common(UNIT_ALU, 1'b0, 1'b1, 1'b0, 1'b0);
     check_field("is_jal", dec_mxif_on.is_jal, 1'b1);
     check_field("op1_is_pc", dec_mxif_on.op1_is_pc, 1'b1);
-    check_field("imm", dec_mxif_on.imm, 64'd16);
+    check_field("imm", dec_mxif_on.imm, XLEN'(16));
 
     cur_test = "jal/negative-offset";
     instr = enc_j(-21'sd4, 5'd1, OP_JAL); #1;
-    check_field("imm", dec_mxif_on.imm, 64'hFFFF_FFFF_FFFF_FFFC);
+    check_field("imm", dec_mxif_on.imm, -XLEN'(4));
 
     // ==========================================================================
     // RV64I extras + 12 instructions.
@@ -300,14 +300,14 @@
 
     cur_test = "OPIMM32/reserved-funct3-010";
     instr = enc_i(12'h001, 5'd5, 3'b010, 5'd6, OP_IMM_32); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "sd"; named("sd");
     instr = enc_s(12'hFF0, 5'd12, 5'd10, 3'b011, OP_STORE); #1;
     expect_common(UNIT_LSU, 1'b0, 1'b0, 1'b1, 1'b1);   // stores never write rd
     check_field("is_store", dec_mxif_on.is_store, 1'b1);
     check_field("mem_size", dec_mxif_on.mem_size, LS_DOUBLE);
-    check_field("imm", dec_mxif_on.imm, 64'hFFFF_FFFF_FFFF_FFF0);  // sext(-16)
+    check_field("imm", dec_mxif_on.imm, -XLEN'(16));  // sext(-16)
 
     cur_test = "addw"; named("addw");
     instr = enc_r(7'b0000000, 5'd3, 5'd2, 3'b000, 5'd1, OP_OP_32); #1;
@@ -335,5 +335,5 @@
     cur_test = "OP32/reserved-SLTW";
     // funct3 010 has no OP-32 base-ISA meaning.
     instr = enc_r(7'b0000000, 5'd3, 5'd2, 3'b010, 5'd1, OP_OP_32); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
   endtask

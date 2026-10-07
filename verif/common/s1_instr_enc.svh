@@ -3,13 +3,13 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // =============================================================================
-// tb_s1_decode_enc : instruction encoders and opcodes for tb_s1_decode
+// s1_instr_enc : RISC-V instruction encoders and opcodes for testbenches
 //
 // The minimum an assembler would give us: one function per instruction format,
 // and the major opcodes by name.  The opcodes are written out here and NOT
-// imported from the RTL, so the testbench does not inherit a decoder mistake.
+// imported from the RTL, so a testbench does not inherit a decoder mistake.
 //
-// Included by verif/unit/tb_s1_decode.sv inside the testbench module.
+// Include inside a testbench module:  `include "verif/common/s1_instr_enc.svh"
 // =============================================================================
 
   function automatic logic [31:0] enc_r(logic [6:0] f7, logic [4:0] rs2,

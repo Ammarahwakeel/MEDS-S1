@@ -88,15 +88,14 @@
 
     cur_test = "OP32/RVM-reserved-mulhw"; // no mulh/mulhsu/mulhu word forms
     instr = enc_r(7'b0000001, 5'd3, 5'd2, 3'b001, 5'd1, OP_OP_32); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
-    check_field("unit", dec_mxif_on.unit, UNIT_NONE);
+    expect_unrecognised();
     check_field("muldiv_op", dec_mxif_on.muldiv_op, MULDIV_NONE);
 
     cur_test = "OP32/RVM-reserved-mulhsuw";
     instr = enc_r(7'b0000001, 5'd3, 5'd2, 3'b010, 5'd1, OP_OP_32); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
 
     cur_test = "OP32/RVM-reserved-mulhuw";
     instr = enc_r(7'b0000001, 5'd3, 5'd2, 3'b011, 5'd1, OP_OP_32); #1;
-    check_field("illegal", dec_mxif_on.illegal, 1'b1);
+    expect_unrecognised();
   endtask
