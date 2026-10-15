@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | WIP -- T-02 |
+| **Status** | COMPLETE |
 | **Owner** | @Ammarahwakeel |
 | **Backup** | _(assign at Phase-0 review)_ |
 | **Project** | T-02 (core backend: decode, register file) |
@@ -71,7 +71,8 @@ that holds each register's current value.
   written register.
 
 No bank ever sees two accesses in one cycle, and nothing stalls. The cost is `2 × N_READ` memories
-of `2**REG_ADDR_W × XLEN` bits (four, at the default) and `N_READ × 2**REG_ADDR_W` pointer flops.
+of `2**REG_ADDR_W × XLEN` bits (four, at the default) and `N_READ × (2**REG_ADDR_W − 1)` pointer
+flops (x0 needs none).
 
 ### Read data, newest first
 

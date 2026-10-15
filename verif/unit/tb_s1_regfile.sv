@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // =============================================================================
-// tb_s1_regfile : unit testbench for s1_regfile                   [WIP -- T-02]
+// tb_s1_regfile : unit testbench for s1_regfile                   [COMPLETE]
 //
 // Every read is checked against a shadow register file, one cycle after its
 // address was presented.  Directed tests cover x0, the two write bypasses and

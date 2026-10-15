@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // =============================================================================
-// s1_regfile : integer register file                              [WIP -- T-02]
+// s1_regfile : integer register file                              [COMPLETE]
 //
 // 2**REG_ADDR_W registers of XLEN bits; x0 reads as zero.  N_READ read ports
 // with a one-cycle registered read, and one write port.  All storage is
@@ -40,17 +40,19 @@ module s1_regfile
 
   // Last cycle's write.  meds_s1_sram returns the OLD word when an address is
   // read and written in the same cycle, so that write is bypassed from here.
+  // Only wr_q is reset; waddr_q/wdata_q load on a write and are ignored while
+  // wr_q is low.
   logic                  wr_q;
   logic [REG_ADDR_W-1:0] waddr_q;
   logic [XLEN-1:0]       wdata_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (!rst_ni) begin
-      wr_q    <= 1'b0;
-      waddr_q <= '0;
-      wdata_q <= '0;
-    end else begin
-      wr_q    <= wr;
+    if (!rst_ni) wr_q <= 1'b0;
+    else         wr_q <= wr;
+  end
+
+  always_ff @(posedge clk_i) begin
+    if (wr) begin
       waddr_q <= waddr_i;
       wdata_q <= wdata_i;
     end
@@ -62,6 +64,8 @@ module s1_regfile
     // read port owns two banks.  cur_q[r] names the bank holding register r.
     // A read uses that bank; a write in the same cycle goes to the other bank
     // and repoints cur_q, so neither bank ever sees two accesses at once.
+    // cur_q[0] belongs to x0: it is never written, so it stays 0 and synthesis
+    // removes it.
     logic [N_REG-1:0]      cur_q;
     logic                  rsel, rsel_q;
     logic [REG_ADDR_W-1:0] raddr_q;
@@ -76,7 +80,9 @@ module s1_regfile
       end else begin
         rsel_q  <= rsel;
         raddr_q <= raddr_i[p];
-        if (wr) cur_q[waddr_i] <= ~rsel;
+        for (int unsigned r = 1; r < N_REG; r++) begin
+          if (wr && (waddr_i == REG_ADDR_W'(r))) cur_q[r] <= ~rsel;
+        end
       end
     end
 
