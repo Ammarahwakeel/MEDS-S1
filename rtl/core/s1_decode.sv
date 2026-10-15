@@ -28,21 +28,25 @@ module s1_decode
 
   // ---------------------------------------------------------------------------
   // Opcode-map constants (RV64IMAC_Zicsr_Zifencei).
+  //
+  // The values live in s1_pkg.sv as OPC_*, where the C expander and fetch also
+  // read them; one copy of the opcode map, per rtl/core/README.md rule 2.  The
+  // local names are aliases so the decode body below reads unchanged.
   // ---------------------------------------------------------------------------
-  localparam logic [6:0] OP_LOAD     = 7'b000_0011;
-  localparam logic [6:0] OP_MISC_MEM = 7'b000_1111;
-  localparam logic [6:0] OP_IMM      = 7'b001_0011;
-  localparam logic [6:0] OP_AUIPC    = 7'b001_0111;
-  localparam logic [6:0] OP_IMM_32   = 7'b001_1011;
-  localparam logic [6:0] OP_STORE    = 7'b010_0011;
-  localparam logic [6:0] OP_AMO      = 7'b010_1111;
-  localparam logic [6:0] OP_OP       = 7'b011_0011;
-  localparam logic [6:0] OP_LUI      = 7'b011_0111;
-  localparam logic [6:0] OP_OP_32    = 7'b011_1011;
-  localparam logic [6:0] OP_BRANCH   = 7'b110_0011;
-  localparam logic [6:0] OP_JALR     = 7'b110_0111;
-  localparam logic [6:0] OP_JAL      = 7'b110_1111;
-  localparam logic [6:0] OP_SYSTEM   = 7'b111_0011;
+  localparam logic [6:0] OP_LOAD     = OPC_LOAD;
+  localparam logic [6:0] OP_MISC_MEM = OPC_MISC_MEM;
+  localparam logic [6:0] OP_IMM      = OPC_OP_IMM;
+  localparam logic [6:0] OP_AUIPC    = OPC_AUIPC;
+  localparam logic [6:0] OP_IMM_32   = OPC_OP_IMM_32;
+  localparam logic [6:0] OP_STORE    = OPC_STORE;
+  localparam logic [6:0] OP_AMO      = OPC_AMO;
+  localparam logic [6:0] OP_OP       = OPC_OP;
+  localparam logic [6:0] OP_LUI      = OPC_LUI;
+  localparam logic [6:0] OP_OP_32    = OPC_OP_32;
+  localparam logic [6:0] OP_BRANCH   = OPC_BRANCH;
+  localparam logic [6:0] OP_JALR     = OPC_JALR;
+  localparam logic [6:0] OP_JAL      = OPC_JAL;
+  localparam logic [6:0] OP_SYSTEM   = OPC_SYSTEM;
 
   // funct7 values that pick a second meaning for an OP/OP-IMM/OP-32 funct3.
   localparam logic [6:0] FUNCT7_ALT     = 7'b010_0000;  // SUB/SRA/SUBW/SRAW

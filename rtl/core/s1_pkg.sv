@@ -41,6 +41,26 @@ package s1_pkg;
   } priv_lvl_e;
 
   // ---------------------------------------------------------------------------
+  // RV64 major opcodes, inst[6:0].  Shared by the C expander, fetch and the decoder.
+  // ---------------------------------------------------------------------------
+  parameter logic [6:0] OPC_LOAD      = 7'b0000011;
+  parameter logic [6:0] OPC_LOAD_FP   = 7'b0000111;
+  parameter logic [6:0] OPC_MISC_MEM  = 7'b0001111;
+  parameter logic [6:0] OPC_OP_IMM    = 7'b0010011;
+  parameter logic [6:0] OPC_AUIPC     = 7'b0010111;
+  parameter logic [6:0] OPC_OP_IMM_32 = 7'b0011011;
+  parameter logic [6:0] OPC_STORE     = 7'b0100011;
+  parameter logic [6:0] OPC_STORE_FP  = 7'b0100111;
+  parameter logic [6:0] OPC_AMO       = 7'b0101111;
+  parameter logic [6:0] OPC_OP        = 7'b0110011;
+  parameter logic [6:0] OPC_LUI       = 7'b0110111;
+  parameter logic [6:0] OPC_OP_32     = 7'b0111011;
+  parameter logic [6:0] OPC_BRANCH    = 7'b1100011;
+  parameter logic [6:0] OPC_JALR      = 7'b1100111;
+  parameter logic [6:0] OPC_JAL       = 7'b1101111;
+  parameter logic [6:0] OPC_SYSTEM    = 7'b1110011;
+
+  // ---------------------------------------------------------------------------
   // ALU
   //
   // The W-suffixed operations are the RV64 32-bit forms: compute on the low 32
