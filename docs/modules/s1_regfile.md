@@ -22,8 +22,8 @@ detection (SPEC §8) are the hazard unit's job.
 |---|---|---|---|---|
 | `clk_i` | in | 1 | clock | single domain |
 | `rst_ni` | in | 1 | reset | async assert, sync de-assert; does **not** clear the registers |
-| `raddr_i[N_READ]` | in | `REG_ADDR_W` | read addresses | sampled every cycle |
-| `rdata_o[N_READ]` | out | `XLEN` | read data | for the address presented in the **previous** cycle |
+| `raddr_i` | in | `[N_READ-1:0][REG_ADDR_W-1:0]` | read addresses, one per port | sampled every cycle |
+| `rdata_o` | out | `[N_READ-1:0][XLEN-1:0]` | read data, one per port | for the address presented in the **previous** cycle |
 | `we_i` | in | 1 | write enable | asserted at retire (SPEC §9.2 step 1) |
 | `waddr_i` | in | `REG_ADDR_W` | write address | a write to `x0` is discarded |
 | `wdata_i` | in | `XLEN` | write data | |

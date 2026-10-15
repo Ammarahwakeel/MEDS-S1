@@ -21,9 +21,11 @@ module s1_regfile
   input  logic                  clk_i,
   input  logic                  rst_ni,
 
-  // Read: address in one cycle, data in the next.
-  input  logic [REG_ADDR_W-1:0] raddr_i [N_READ],
-  output logic [XLEN-1:0]       rdata_o [N_READ],
+  // Read: address in one cycle, data in the next.  Packed, not unpacked
+  // arrays: Verilator 5.020 silently miscompiles a write to one element of an
+  // unpacked-array input port (it reads as zero in the module).
+  input  logic [N_READ-1:0][REG_ADDR_W-1:0] raddr_i,
+  output logic [N_READ-1:0][XLEN-1:0]       rdata_o,
 
   // Write, at retire (SPEC 9.2 step 1).  A write to x0 is discarded.
   input  logic                  we_i,

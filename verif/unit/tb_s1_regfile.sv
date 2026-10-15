@@ -25,8 +25,8 @@ module tb_s1_regfile
 
   logic                  clk;
   logic                  rst_n;
-  logic [REG_ADDR_W-1:0] raddr [N_READ];
-  logic [XLEN-1:0]       rdata [N_READ];
+  logic [N_READ-1:0][REG_ADDR_W-1:0] raddr;  // packed, to match the DUT ports
+  logic [N_READ-1:0][XLEN-1:0]       rdata;
   logic                  we;
   logic [REG_ADDR_W-1:0] waddr;
   logic [XLEN-1:0]       wdata;
