@@ -196,7 +196,7 @@ module s1_decode
         decoded_o.imm        = imm_i;
         decoded_o.op2_is_imm = 1'b1;
         decoded_o.illegal    = 1'b0;
-                unique case (funct3)
+        unique case (funct3)
           3'b000: decoded_o.alu_op = ALU_ADD;
           3'b001: begin
             // SLLI: imm_i[11:6] must be 0.
@@ -224,7 +224,7 @@ module s1_decode
         decoded_o.unit       = UNIT_ALU;
         decoded_o.imm        = imm_i;
         decoded_o.op2_is_imm = 1'b1;
-                unique case (funct3)
+        unique case (funct3)
           3'b000: begin decoded_o.alu_op = ALU_ADDW; decoded_o.illegal = 1'b0; end
           3'b001: begin
             // SLLIW: shamt is only 5 bits; imm_i[11:5] must be 0.
@@ -319,7 +319,7 @@ module s1_decode
           3'b000: begin decoded_o.mem_size = LS_BYTE;   decoded_o.mem_signed = 1'b1; decoded_o.illegal = 1'b0; end  // LB
           3'b001: begin decoded_o.mem_size = LS_HALF;   decoded_o.mem_signed = 1'b1; decoded_o.illegal = 1'b0; end  // LH
           3'b010: begin decoded_o.mem_size = LS_WORD;   decoded_o.mem_signed = 1'b1; decoded_o.illegal = 1'b0; end  // LW
-          3'b011: begin decoded_o.mem_size = LS_DOUBLE; decoded_o.mem_signed = 1'b0; decoded_o.illegal = 1'b0; end  // LD
+          3'b011: begin decoded_o.mem_size = LS_DOUBLE; decoded_o.mem_signed = 1'b1; decoded_o.illegal = 1'b0; end  // LD
           3'b100: begin decoded_o.mem_size = LS_BYTE;   decoded_o.mem_signed = 1'b0; decoded_o.illegal = 1'b0; end  // LBU
           3'b101: begin decoded_o.mem_size = LS_HALF;   decoded_o.mem_signed = 1'b0; decoded_o.illegal = 1'b0; end  // LHU
           3'b110: begin decoded_o.mem_size = LS_WORD;   decoded_o.mem_signed = 1'b0; decoded_o.illegal = 1'b0; end  // LWU

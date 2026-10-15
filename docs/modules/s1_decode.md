@@ -5,26 +5,16 @@
 | **Status** | COMPLETE |
 | **Owner** | @Ammarahwakeel |
 | **Backup** | _(assign at Phase-0 review)_ |
-| **Project** | T-02 (decode stage) |
-| **Spec** | SPEC §6, §7.1, §7.2, §7.4/§14/§15 (Zicbom issues in MEM/LSU/D$, not here), §8 (consumed by, not implemented by, this module), §9.1, §9.2, §10.2, §11, §13 (DRET), §19 (MXIF) |
+| **Project** | T-02 |
+| **Spec** | SPEC §7.1, §7.2, §9.2; INTERFACES.md §1.8 |
 | **Source** | `rtl/core/s1_decode.sv` |
-| **Testbench** | `verif/unit/tb_s1_decode.sv` — 539 checks; test groups in `verif/unit/tb_s1_decode_*.svh`, encoders in `verif/common/s1_instr_enc.svh` |
+| **Testbench** | `verif/unit/tb_s1_decode.sv` — 540 checks |
 
 ## Purpose
 
-The instruction decoder for the ID pipeline stage. It is purely combinational and turns one 32-bit,
-already-C-expanded instruction into a `decoded_op_t` control bundle. It exists as a separate module
-because SPEC §7.2 describes ID-stage decode, regfile read, hazard detection, forwarding-source
-selection, and completion-buffer allocation as one job, and this RTL deliberately splits that job
-into three modules so each stays small enough to read in one sitting: this module turns an
-instruction into control signals and never sees a register value (forwarded or otherwise);
-`s1_regfile.sv` owns register-file reads and the four-source forwarding mux (SPEC §8.1);
-the completion buffer (project R-01) owns CB allocation and the hazard/stall table (SPEC §8.2), which needs
-pipeline state this module intentionally is not given. This module also does not check privilege —
-CSR/privilege legality belongs to the CSR file's generated access-control matrix (project T-03, SPEC §10.2), and
-MRET/SRET/WFI legality at retire belongs to the privilege FSM (SPEC §10.1). `illegal` here is only
-ever raised for an encoding this decoder does not recognise when no coprocessor is attached, or for
-a still-compressed instruction.
+The ID-stage instruction decoder. It turns one 32-bit instruction into a `decoded_op_t` control
+bundle. It is a separate module so that decode is pure instruction-to-control logic: it reads no
+register values, holds no pipeline state, and makes no privilege checks.
 
 ## Interface contract
 
@@ -32,126 +22,125 @@ Purely combinational. No clock, no reset, no state.
 
 | Signal | Dir | Width | Meaning | Contract |
 |---|---|---|---|---|
-| `instr_i` | in | `ILEN` (32) | Instruction encoding | must already be a 32-bit, C-expanded instruction; `instr_i[1:0] == 2'b11` is enforced structurally — anything else is `illegal=1`, `unit=UNIT_NONE`, with or without a coprocessor |
-| `pc_i` | in | `XLEN` (64) | Program counter of this instruction | passed straight through to `decoded_o.pc` for diagnostics only; this module does **not** compute JAL/AUIPC targets from it — it just asserts `op1_is_pc` so the downstream ALU (SPEC §7.3) selects PC as an operand |
-| `decoded_o` | out | `decoded_op_t` | Decoded control bundle (~30 fields) | every field is driven on every path (default-first, no inferred latches); `illegal` defaults to 1 and a case arm must actively clear it |
+| `instr_i` | in | `ILEN` (32) | instruction | already C-expanded (SPEC §7.1); `instr_i[1:0] != 2'b11` decodes as illegal |
+| `pc_i` | in | `XLEN` (64) | PC of `instr_i` | copied to `decoded_o.pc`; not used in decode |
+| `decoded_o` | out | `decoded_op_t` | control bundle | every field driven on every path |
 
-**`rd_we` on an MXIF candidate is a placeholder.** The decoder cannot know whether a coprocessor
-instruction writes a scalar register, so it sets `rd_we=1` for every MXIF candidate. The completion
-buffer must take the real value from the coprocessor's issue response (`x_issue_writeback`), not
-from this field. If it used this field, the retire rule in SPEC §9.2 would make an instruction with
-no scalar result wait for an `x_result_valid` that never arrives.
-
-**Handshake:** none — no `valid`/`ready`, purely functional of the current inputs.
 **Latency:** zero — combinational.
-**Backpressure:** not applicable; there is no state to stall.
 **Reset state:** none; outputs follow inputs.
+
+**`decoded_o.illegal` means "illegal if nothing else accepts it", not "trap now".** With
+`MXIF_EN=1` it is never set except for a still-compressed encoding; unrecognised encodings become
+MXIF candidates instead.
+
+**On an MXIF candidate, `rs1_re`, `rs2_re` and `rd_we` are all 1 as placeholders.** The decoder
+cannot know which registers a coprocessor instruction uses. The consumer must take the real
+write-back from `x_issue_writeback`; using `rd_we` would make an instruction without a scalar result
+wait at retire for a result that never arrives (SPEC §9.2).
+
+**`rd_we` is not gated by `rd == x0`**, and CSR instructions always set `rd_we=1`. The register file
+discards `x0` writes. The CSR unit must apply the Zicsr side-effect rules itself: CSRRW/CSRRWI with
+`rd=x0` do not read the CSR; CSRRS/CSRRC with `rs1=x0` and CSRRSI/CSRRCI with `uimm=0` do not write it.
 
 ## Parameters
 
 | Parameter | Default | Legal range | Effect |
 |---|---|---|---|
-| `MXIF_EN` | `1'b1` | 0, 1 | Whether a coprocessor is attached (soc.yaml `MXIF_EN`). With `MXIF_EN=1`, every encoding the decoder does not recognise — an unknown opcode, or a reserved `funct3`/`funct7`/immediate pattern under a known opcode — is marked `unit=UNIT_MXIF`, `mxif_candidate=1`, `illegal=0` and offered to the coprocessor. With `MXIF_EN=0`, the same encoding is `illegal=1`, `unit=UNIT_NONE`, since there is no coprocessor to ask (SPEC §7.2 design note). |
+| `MXIF_EN` | `1'b1` | 0, 1 | 1: unrecognised encodings are MXIF candidates. 0: they are illegal. |
 
 ## Behaviour
 
-### Field extraction
+All five immediates (I, S, B, U, J) are computed in parallel, sign-extended to 64 bits; each opcode
+selects one. The Zicsr `uimm` is `rs1` zero-extended.
 
-| Signal | Bits | Width | Purpose |
+### Recognised encodings
+
+Anything not listed here is unrecognised.
+
+| Opcode | Instructions | `unit` | Legal only when |
 |---|---|---|---|
-| `opcode` | `instr_i[6:0]` | 7 | selects instruction family (14 recognised opcodes) |
-| `funct3` | `instr_i[14:12]` | 3 | secondary selector within family |
-| `funct7` | `instr_i[31:25]` | 7 | tertiary selector — picks the ALU/ALT/MULDIV variant on `OP` and `OP-32` |
-| `rd_f` | `instr_i[11:7]` | 5 | destination register field |
-| `rs1_f` | `instr_i[19:15]` | 5 | source register 1 field |
-| `rs2_f` | `instr_i[24:20]` | 5 | source register 2 field |
+| `LOAD` | LB LH LW LD LBU LHU LWU | LSU | `funct3 != 111` |
+| `STORE` | SB SH SW SD | LSU | `funct3` ∈ {000–011} |
+| `OP-IMM` | ADDI SLTI SLTIU XORI ORI ANDI SLLI SRLI SRAI | ALU | shifts: `instr[31:26]` = `000000` (SLLI, SRLI) or `010000` (SRAI) |
+| `OP-IMM-32` | ADDIW SLLIW SRLIW SRAIW | ALU | `funct3` ∈ {000, 001, 101}; shifts: `instr[31:25]` = `0000000` or `0100000` (SRAIW only) |
+| `OP` | ADD SUB SLL SLT SLTU XOR SRL SRA OR AND | ALU | `funct7 = 0000000`, or `0100000` with `funct3` ∈ {000, 101} |
+| `OP` | MUL MULH MULHSU MULHU · DIV DIVU REM REMU | MUL · DIV | `funct7 = 0000001` |
+| `OP-32` | ADDW SUBW SLLW SRLW SRAW | ALU | `funct7 = 0000000` with `funct3` ∈ {000, 001, 101}, or `0100000` with `funct3` ∈ {000, 101} |
+| `OP-32` | MULW · DIVW DIVUW REMW REMUW | MUL · DIV | `funct7 = 0000001`, `funct3` ∈ {000, 100–111} |
+| `LUI`, `AUIPC` | LUI AUIPC | ALU | always |
+| `JAL` | JAL | ALU | always |
+| `JALR` | JALR | ALU | `funct3 = 000` |
+| `BRANCH` | BEQ BNE BLT BGE BLTU BGEU | ALU | `funct3 ∉ {010, 011}` |
+| `AMO` | LR SC AMOSWAP AMOADD AMOXOR AMOAND AMOOR AMOMIN AMOMAX AMOMINU AMOMAXU (.W, .D) | LSU | `funct3` ∈ {010, 011}; `funct7[6:2]` a defined op; LR: `rs2 = 0` |
+| `MISC-MEM` | FENCE FENCE.I | NONE | `funct3` ∈ {000, 001}; `rs1`, `rd` and the other immediate bits are ignored |
+| `MISC-MEM` | CBO.INVAL CBO.CLEAN CBO.FLUSH CBO.ZERO | LSU | `funct3 = 010`, `rd = 0`, `instr[31:20]` ∈ {0, 1, 2, 4} |
+| `SYSTEM` | ECALL EBREAK SRET MRET WFI DRET | NONE | `funct3 = 000`, `rs1 = rd = 0`, `instr[31:20]` an exact match |
+| `SYSTEM` | SFENCE.VMA | NONE | `funct3 = 000`, `funct7 = 0001001`, `rd = 0` |
+| `SYSTEM` | CSRRW CSRRS CSRRC CSRRWI CSRRSI CSRRCI | CSR | `funct3[1:0] != 00` |
 
-### Immediate pre-computation
+### Operand routing
 
-All five formats are computed in parallel, sign-extended to `XLEN` (64), regardless of opcode; the
-case arm for each opcode picks the one it needs.
+| Instruction | `rs1_re` | `rs2_re` | `rd_we` | `op1_is_pc` | `op2_is_imm` | `imm` |
+|---|---|---|---|---|---|---|
+| OP, OP-32 (ALU, MUL, DIV) | 1 | 1 | 1 | 0 | 0 | — |
+| OP-IMM, OP-IMM-32 | 1 | 0 | 1 | 0 | 1 | I |
+| LUI (`alu_op=ALU_PASS_B`) | 0 | 0 | 1 | 0 | 1 | U |
+| AUIPC | 0 | 0 | 1 | 1 | 1 | U |
+| JAL (`is_jal`) | 0 | 0 | 1 | 1 | 1 | J |
+| JALR (`is_jalr`) | 1 | 0 | 1 | 0 | 1 | I |
+| BRANCH (`is_branch`, `cmp_op`) | 1 | 1 | 0 | 0 | 0 | B |
+| LOAD (`is_load`) | 1 | 0 | 1 | 0 | 1 | I |
+| STORE (`is_store`) | 1 | 1 | 0 | 0 | 1 | S |
+| LR | 1 | 0 | 1 | 0 | 0 | — |
+| SC, AMO* | 1 | 1 | 1 | 0 | 0 | — |
+| CBO.* | 1 | 0 | 0 | 0 | 0 | — |
+| FENCE, FENCE.I, ECALL, EBREAK, xRET, WFI | 0 | 0 | 0 | 0 | 0 | — |
+| SFENCE.VMA | 1 | 1 | 0 | 0 | 0 | — |
+| CSRR{W,S,C} | 1 | 0 | 1 | 0 | 0 | — |
+| CSRR{W,S,C}I (`csr_imm`) | 0 | 0 | 1 | 0 | 0 | `uimm` |
+| MXIF candidate | 1 | 1 | 1 | 0 | 0 | — |
 
-| Immediate | Format | Bit source | Consumed by |
-|---|---|---|---|
-| `imm_i` | I-type | `sext(instr[31:20])` | `OP-IMM`, `OP-IMM-32`, `LOAD`, `JALR`; also reused (zero-extended, not sign-extended) as CSR uimm |
-| `imm_s` | S-type | `sext({instr[31:25], instr[11:7]})` | `STORE` |
-| `imm_b` | B-type | `sext({instr[31], instr[7], instr[30:25], instr[11:8], 0})` | `BRANCH` |
-| `imm_u` | U-type | `{sext(instr[31:12]), 12'b0}` | `LUI`, `AUIPC` |
-| `imm_j` | J-type | `sext({instr[31], instr[19:12], instr[20], instr[30:21], 0})` | `JAL` |
+For JAL and JALR, the ALU operands give the target; the link value `pc+4` is not encoded in the
+bundle. AMO and CBO addresses are `rs1` with no offset.
 
-### Opcode families
+### Unrecognised encodings
 
-| Opcode (binary) | Mnemonics | Discriminator | `unit` | Notes |
-|---|---|---|---|---|
-| `OP_LOAD` (`0000011`) | LB LH LW LBU LHU LWU LD | `funct3` | `UNIT_LSU` | `funct3=111` reserved |
-| `OP_STORE` (`0100011`) | SB SH SW SD | `funct3` | `UNIT_LSU` | `funct3=111` reserved |
-| `OP_IMM` (`0010011`) | ADDI SLLI SLTI SLTIU XORI SRLI SRAI ORI ANDI | `funct3`; `instr[30]` picks SRAI vs SRLI | `UNIT_ALU` | shift forms require `imm_i[11:6]` = `000000` (SLLI, SRLI) or `010000` (SRAI); anything else is unrecognised |
-| `OP_IMM_32` (`0011011`) | ADDIW SLLIW SRLIW SRAIW | `funct3`; `instr[30]` picks SRAIW vs SRLIW | `UNIT_ALU` | `funct3` 010/011/100/110/111 reserved |
-| `OP_AUIPC` (`0010111`) | AUIPC | — | `UNIT_ALU` | `op1_is_pc=1`, `imm=imm_u` |
-| `OP_LUI` (`0110111`) | LUI | — | `UNIT_ALU` | `alu_op=ALU_PASS_B`, `imm=imm_u` |
-| `OP_OP` (`0110011`) | ADD SUB SLL SLT SLTU XOR SRL SRA OR AND · MUL MULH MULHSU MULHU DIV DIVU REM REMU | `funct7` (`0000000` base / `0100000` alt / `0000001` muldiv) + `funct3` | `UNIT_ALU` / `UNIT_MUL` / `UNIT_DIV` | `FUNCT7_ALT` only legal for `funct3` 000 (SUB) and 101 (SRA); any other `funct3` under `FUNCT7_ALT` reserved |
-| `OP_OP_32` (`0111011`) | ADDW SUBW SLLW SRLW SRAW · MULW DIVW DIVUW REMW REMUW | `funct7` + `funct3` | `UNIT_ALU` / `UNIT_MUL` / `UNIT_DIV` | no MULHW/MULHSUW/MULHUW — `funct3` 001/010/011 under `FUNCT7_MULDIV` reserved |
-| `OP_BRANCH` (`1100011`) | BEQ BNE BLT BGE BLTU BGEU | `funct3` | `UNIT_ALU` (comparator) | `funct3` 010/011 reserved; `rs1`/`rs2` read raw, never through the ALU-imm mux |
-| `OP_JAL` (`1101111`) | JAL | — | `UNIT_ALU` | `op1_is_pc=1`, `imm=imm_j`, `is_jal=1` |
-| `OP_JALR` (`1100111`) | JALR | `funct3==000` | `UNIT_ALU` | any other `funct3` reserved |
-| `OP_AMO` (`0101111`) | LR SC AMOSWAP AMOADD AMOXOR AMOAND AMOOR AMOMIN AMOMAX AMOMINU AMOMAXU (.W/.D) | `funct3` (010=W/011=D) then `funct7[6:2]` | `UNIT_LSU` | address = `rs1` only, no offset; `LR` excludes `rs2_re` and requires `rs2==0` (RVA; `rs2!=0` is reserved); any other `funct3` (byte/half width) reserved |
-| `OP_MISC_MEM` (`0001111`) | FENCE, FENCE.I | `funct3==000/001` | `UNIT_NONE` | `rs1`/`rd` are reserved fields (riscv-opcodes `rv_i::fence`, `rv_zifencei::fence.i`), not fixed to 0 — this decoder ignores their value, per base-implementation forward-compatibility rules |
-| `OP_MISC_MEM` (`0001111`) | CBO.INVAL CBO.CLEAN CBO.FLUSH CBO.ZERO (Zicbom/Zicboz) | `funct3==010`, then `instr[31:20]` (0/1/2/4) | `UNIT_LSU` | address = `rs1` only, no offset, same convention as AMO; `rd` **is** fixed to 0 here (riscv-opcodes `rv_zicbo`: `11..7=0`) — unlike FENCE, a nonzero `rd` is reserved, not ignored; any other `funct3` or `instr[31:20]` value under `funct3==010` reserved |
-| `OP_SYSTEM` (`1110011`) | ECALL EBREAK SRET MRET WFI DRET SFENCE.VMA · CSRRW CSRRS CSRRC CSRRWI CSRRSI CSRRCI | `funct3==000` → `instr[31:20]` fixed pattern, or `funct7==0001001` (SFENCE.VMA, real `rs1`/`rs2` operands, `rd` fixed to 0); any other `funct3` → Zicsr via `funct3[1:0]` | `UNIT_NONE` / `UNIT_CSR` | ECALL/EBREAK/SRET/MRET/WFI/DRET all require `rs1==0 && rd==0` (fixed by their encoding, unlike FENCE); Zicsr immediate forms (`csr_imm=funct3[2]`) set `rs1_re=0` even though `rs1_f` still carries the zero-extended 5-bit uimm into `decoded_o.imm` |
-| anything unrecognised | — (MXIF candidate) | — | `UNIT_MXIF` / `UNIT_NONE` | unknown opcodes and every "reserved" entry above; see the MXIF rule below |
+The opcode case starts from a default bundle with `illegal=1`; each recognised encoding clears it.
+If `illegal` is still 1 afterwards, the bundle is reset to the default, so no partly decoded field
+survives. Then:
 
-### Design rules (not opcode-specific)
+- `MXIF_EN=1`: `unit=UNIT_MXIF`, `mxif_candidate=1`, `illegal=0` (SPEC §7.2). This covers unknown
+  opcodes, including OP-V, LOAD-FP and STORE-FP (INTERFACES.md §1.8), and reserved encodings under
+  known opcodes.
+- `MXIF_EN=0`: `unit=UNIT_NONE`, `illegal=1`.
 
-- **Default-first, fail-closed.** `illegal` (and `unit=UNIT_NONE`, `rs1_re=rs2_re=rd_we=0`, etc.) is
-  set before the `unique case` runs; each legal encoding must explicitly clear `illegal`. A forgotten
-  case arm or a wrong funct3/funct7 guard defaults to illegal rather than silently executing.
-- **MXIF candidate marking (SPEC §7.2 design note).** The decoder does not reject what it does not
-  recognise. After the opcode case, anything still unrecognised is reset to the default bundle and,
-  with `MXIF_EN=1`, marked `unit=UNIT_MXIF`, `mxif_candidate=1`, `illegal=0`; with `MXIF_EN=0` it
-  stays `unit=UNIT_NONE`, `illegal=1`. This covers unknown opcodes (including `LOAD-FP`/`STORE-FP`/
-  `OP-V`, which `INTERFACES.md` §1.8 requires to be forwarded) and reserved encodings under known
-  opcodes, so a coprocessor can add instructions in standard opcode space.
-- **An unrecognised encoding carries nothing else.** Because of that reset, `illegal=1` always comes
-  with `unit=UNIT_NONE` and `rs1_re=rs2_re=rd_we=0`; no half-decoded field survives.
-- **Compressed-instruction guard (SPEC §7.1).** A final, unconditional check resets the bundle to
-  `illegal=1`, `unit=UNIT_NONE` if `instr_i[1:0] != 2'b11`, coprocessor or not. This is a structural
-  leak guard, not an ISA rule — 16-bit encodings are expanded to 32-bit before this module ever sees
-  them, and a coprocessor is never offered one.
+Finally, if `instr_i[1:0] != 2'b11` the bundle is reset to the illegal default regardless of
+`MXIF_EN`.
 
 ## Exceptions and errors
 
-None. This module cannot fault. An instruction may be `illegal` (anything unrecognised with
-`MXIF_EN=0`, or a still-compressed encoding), but that is signaled via `decoded_o.illegal`, not an exception.
-Privilege checks (CSR access, MRET/SRET/WFI legality) are performed downstream, not here.
+None. Illegality is reported in `decoded_o.illegal`; the trap is raised downstream.
 
 ## Verification status
 
 | Layer | Status | Where |
 |---|---|---|
 | Lint | clean on all four configs | `make lint CONFIG=<name>` |
-| Unit test | **539 checks** — 101 named instructions (37 RV64I + 12 RV64I+ + 13 RVM + 11 RV64A + 15 SYSTEM + 4 Zicbom/Zicboz + 9 pseudo-instruction spot checks), every reserved funct3/funct7 pair adjacent to its legal neighbour and checked under both `MXIF_EN` settings (MXIF candidate with a coprocessor, illegal without), the compressed-instruction guard | `make test-unit TB=s1_decode` |
-| Co-simulation | not yet — needs the Spike harness (R-05) | |
-| Formal | not yet | candidate for T-07 |
+| Unit test | **540 checks** — every instruction in the table above, 9 pseudo-instructions, reserved-encoding spot checks under both `MXIF_EN` values, compressed-encoding guard | `make test-unit TB=s1_decode` |
+| Co-simulation | not yet | |
+| Formal | not yet | |
 
 ## Known limitations
 
-- **`rd_we` is always `1` on an MXIF candidate**, whether or not the coprocessor instruction writes a
-  scalar register; see the interface contract above for what the completion buffer must do.
-- **RV64C (Compressed) is not tested here by design.** C-form instructions are expanded at the IF/ID
-  boundary; this decoder never sees them. Every "32-bit equivalent" in the compressed table is already
-  covered by the RV64I/RV64I+/RVM sections (e.g. `c.addi`→`addi`, `c.lw`→`lw`, `c.jal`→`jal`).
-- **No Zbb bit-manipulation.** Not decoded anywhere in the opcode case; out of scope for v1.0.
-- **No per-config ISA-extension gating.** This decoder accepts RV64A, RV64M, Zicsr, Zifencei, Zicbom
-  and Zicboz encodings unconditionally, regardless of `soc.yaml`'s ISA string for the active config.
-  S1-Nano's ISA is RV64IMC (no A, no Zicsr/Zifencei, no Zicbom/Zicboz per SPEC §5.3), so on that
-  config this decoder currently accepts instructions its own ISA string says it shouldn't. `MXIF_EN`
-  is the only config-conditional legality check today. Pre-existing gap (predates the Zicbom/Zicboz
-  addition), not something introduced by adding CBO support -- flagged here rather than silently
-  carried forward.
-- **`x0` is not special-cased.** Reads of `rs1`/`rs2`==`x0` and writes to `rd`==`x0` are decoded
-  normally (`rd_we` can be `1` for `rd==0`, e.g. on `nop`/`j`/`csrw`); the regfile is responsible for
-  discarding writes to `x0`, not this module.
+- **No per-config ISA gating.** The decoder accepts the union of all configs' ISAs (SPEC §5.3):
+  A, Zicsr, Zifencei, Zicbom, Zicboz, SRET, SFENCE.VMA and DRET are recognised on every config,
+  including those whose ISA string or privilege set excludes them. `MXIF_EN` is the only
+  configuration input.
+- **No opcode routing from `soc.yaml`.** SPEC §7.2 allows `soc.yaml` to route opcodes to the
+  coprocessor; the decoder only routes encodings it does not recognise.
+- **Encodings longer than 32 bits** (`instr_i[4:2] = 111`) are treated as unrecognised and become
+  MXIF candidates when `MXIF_EN=1`.
 
 ## Open questions
 
-- None for now; reviewers and future contributors can add them here.
+None.

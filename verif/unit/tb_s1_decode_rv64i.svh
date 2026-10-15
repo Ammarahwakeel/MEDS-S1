@@ -270,6 +270,7 @@
     cur_test = "ld"; named("ld");
     instr = enc_i(12'h000, 5'd10, 3'b011, 5'd11, OP_LOAD); #1;
     check_field("mem_size", dec_mxif_on.mem_size, LS_DOUBLE);
+    check_field("mem_signed", dec_mxif_on.mem_signed, 1'b1);
     check_field("illegal", dec_mxif_on.illegal, 1'b0);
 
     cur_test = "lwu"; named("lwu");
